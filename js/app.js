@@ -125,9 +125,11 @@ function renderRoadmap() {
           <div class="roadmap-item-name">${i.name} — ${i.colorName}</div>
           <div class="roadmap-item-price">₹${i.price}</div>
           <div class="roadmap-item-detail">${i.fabric}${i.note ? ' — ' + i.note : ''}</div>
+          ${i.construction ? `<div class="roadmap-item-detail"><b>Tell the tailor:</b> ${i.construction}</div>` : ''}
           <div class="roadmap-item-meta">
             <span class="tag ${i.tier === 'essential' ? 'essential' : i.tier === 'high-value' ? 'high' : 'eventual'}">${i.tier}</span>
             <span class="card-meta">${i.brand}</span>
+            ${i.link ? `<a href="${i.link}" target="_blank" rel="noopener" class="roadmap-link">Buy / order link ↗</a>` : ''}
             <button class="owned-toggle" data-id="${i.id}">Mark owned</button>
           </div>
         </div>`).join('')}
@@ -137,27 +139,49 @@ function renderRoadmap() {
     btn.addEventListener('click', () => {
       const item = byId(btn.dataset.id);
       item.owned = !item.owned;
-      renderRoadmap(); renderWardrobe(); renderGaps(); populateBuilderOptions();
+      renderRoadmap(); renderWardrobe(); renderGaps(); renderPairings(); populateBuilderOptions();
     });
   });
 }
 
 // ---------- Pairings ----------
+const pairingState = { occasion: 'all', showRoadmapNeeded: true };
 function renderPairings() {
+  const bar = document.getElementById('pairings-filters');
+  const occasions = ['all','work','family','travel'];
+  bar.innerHTML = `
+    <div class="filter-bar" style="margin-bottom:.5rem;">
+      ${occasions.map(o => `<button class="filter-chip ${pairingState.occasion===o?'active':''}" data-occ="${o}">${o}</button>`).join('')}
+    </div>
+    <label class="toggle-label">
+      <input type="checkbox" id="roadmap-toggle" ${pairingState.showRoadmapNeeded ? 'checked' : ''}>
+      Include pairings that need Roadmap items you don't own yet
+    </label>
+  `;
+  bar.querySelectorAll('[data-occ]').forEach(b => b.addEventListener('click', () => { pairingState.occasion = b.dataset.occ; renderPairings(); }));
+  bar.querySelector('#roadmap-toggle').addEventListener('change', (e) => { pairingState.showRoadmapNeeded = e.target.checked; renderPairings(); });
+
   const el = document.getElementById('pairings-body');
-  el.innerHTML = PAIRINGS.map(p => {
+  const filtered = PAIRINGS.filter(p => {
+    if (pairingState.occasion !== 'all' && !p.occasions.includes(pairingState.occasion)) return false;
     const items = p.items.map(byId).filter(Boolean);
+    const allOwned = items.every(i => i.owned);
+    if (!allOwned && !pairingState.showRoadmapNeeded) return false;
+    return true;
+  });
+  el.innerHTML = filtered.map(p => {
+    const items = p.items.map(byId).filter(Boolean);
+    const missing = items.filter(i => !i.owned);
     return `
       <div class="pairing-card">
         <div class="pairing-head">
           <div class="pairing-name">${p.name}</div>
-          <div class="pairing-occasion">${p.occasion}</div>
+          <div class="pairing-occasion">${p.occasions.join(' · ')}</div>
         </div>
         <div class="pairing-swatches">${items.map(i => `<div class="pairing-swatch" style="background:${i.hex}" title="${i.name}"></div>`).join('')}</div>
-        <div class="pairing-why">${p.whyItWorks}</div>
-        <div class="pairing-rule">${p.colorRule}</div>
+        <div class="pairing-why">${p.why}${missing.length ? ` <span class="pairing-missing">— needs: ${missing.map(m=>m.name).join(', ')}</span>` : ''}</div>
       </div>`;
-  }).join('');
+  }).join('') || '<p class="field">No pairings match this filter.</p>';
 }
 
 // ---------- Dictionary ----------
@@ -221,6 +245,15 @@ const SLOTS = ['top','bottom','outerwear','footwear'];
 const ACCESSORY_SLOTS = ['belt','watch','glasses'];
 const builderState = { top:null, bottom:null, outerwear:null, footwear:null, belt:null, watch:null, glasses:null, tuck:'untucked', roll:'down', breakStyle:'half' };
 
+const SLOT_HELP = {
+  top: 'Tees, shirts, polos, knitwear — worn on the torso.',
+  bottom: 'Trousers, chinos, joggers, jeans, cargo.',
+  outerwear: 'Layers worn over a top — overshirts, monsoon shells. No blazer: confirmed you never wear one in office, even for escalation.',
+  footwear: 'Shoes and boots.',
+  belt: 'Waist accessory — shown matched to shoe leather where relevant.',
+  watch: 'Wrist accessory.',
+  glasses: 'Eyewear — optical or sun.',
+};
 function populateBuilderOptions() {
   const panel = document.getElementById('slot-panel');
   const accCats = { belt:'belt', watch:'watch', glasses:'glasses' };
@@ -228,14 +261,14 @@ function populateBuilderOptions() {
   SLOTS.forEach(slot => {
     const cat = slot === 'outerwear' ? 'outerwear' : slot === 'footwear' ? 'footwear' : slot;
     const options = ITEMS.filter(i => i.category === cat);
-    html += `<div class="slot-group"><h4>${slot}</h4><div class="swatch-row" data-slot="${slot}">
+    html += `<div class="slot-group"><h4>${slot}</h4><div class="slot-help">${SLOT_HELP[slot]}</div><div class="swatch-row" data-slot="${slot}">
       <button class="swatch-btn none ${!builderState[slot] ? 'selected' : ''}" data-id="" title="none">–</button>
       ${options.map(i => `<button class="swatch-btn ${builderState[slot]===i.id?'selected':''}" data-id="${i.id}" style="background:${i.hex}" title="${i.brand} ${i.name} — ${i.colorName}"></button>`).join('')}
     </div></div>`;
   });
   Object.entries(accCats).forEach(([slot, shapeCat]) => {
     const options = ITEMS.filter(i => i.category === 'accessory' && i.shape.startsWith(shapeCat));
-    html += `<div class="slot-group"><h4>${slot}</h4><div class="swatch-row" data-slot="${slot}">
+    html += `<div class="slot-group"><h4>${slot}</h4><div class="slot-help">${SLOT_HELP[slot]}</div><div class="swatch-row" data-slot="${slot}">
       <button class="swatch-btn none ${!builderState[slot] ? 'selected' : ''}" data-id="" title="none">–</button>
       ${options.map(i => `<button class="swatch-btn ${builderState[slot]===i.id?'selected':''}" data-id="${i.id}" style="background:${i.hex}" title="${i.name}"></button>`).join('')}
     </div></div>`;
@@ -281,26 +314,26 @@ function garmentLayer(item) {
     case 'tee': {
       const sleeveEnd = builderState.roll === 'high' ? 78 : 100;
       return g(`
-        <path d="M68,60 L132,60 L138,${sleeveEnd} L120,93 L120,178 L80,178 L80,93 L62,${sleeveEnd} Z" fill="${hex}" stroke="#00000022"/>
+        <path d="M62,58 L138,58 L148,${sleeveEnd} L126,94 L126,180 L74,180 L74,94 L52,${sleeveEnd} Z" fill="${hex}" stroke="#00000022"/>
         ${texturePattern(fab)}
       `);
     }
     case 'shirt': case 'overshirt': case 'knit': {
-      const sleeveEnd = builderState.roll === 'high' ? 78 : builderState.roll === 'italian' ? 118 : builderState.roll === 'casual' ? 140 : 185;
-      const collar = shape !== 'knit' ? `<path d="M92,55 L100,68 L108,55" fill="none" stroke="#00000030" stroke-width="1.4"/>` : '';
-      const hemY = builderState.tuck === 'untucked' ? 195 : 180;
+      const sleeveEnd = builderState.roll === 'high' ? 78 : builderState.roll === 'italian' ? 118 : builderState.roll === 'casual' ? 140 : 186;
+      const collar = shape !== 'knit' ? `<path d="M90,54 L100,70 L110,54" fill="none" stroke="#00000030" stroke-width="1.4"/>` : '';
+      const hemY = builderState.tuck === 'untucked' ? 198 : 182;
       return g(`
-        <path d="M66,58 L134,58 L156,${sleeveEnd} L142,${sleeveEnd-6} L128,90 L128,${hemY} L72,${hemY} L72,90 L58,${sleeveEnd-6} L44,${sleeveEnd} Z" fill="${hex}" stroke="#00000022"/>
+        <path d="M60,56 L140,56 L164,${sleeveEnd} L148,${sleeveEnd-6} L132,92 L132,${hemY} L68,${hemY} L68,92 L52,${sleeveEnd-6} L36,${sleeveEnd} Z" fill="${hex}" stroke="#00000022"/>
         ${collar}
         ${texturePattern(fab)}
       `);
     }
     case 'polo': {
       const sleeveEnd = builderState.roll === 'high' ? 78 : 100;
-      const hemY = builderState.tuck === 'untucked' ? 195 : 180;
+      const hemY = builderState.tuck === 'untucked' ? 198 : 182;
       return g(`
-        <path d="M68,60 L132,60 L140,${sleeveEnd} L122,93 L122,${hemY} L78,${hemY} L78,93 L60,${sleeveEnd} Z" fill="${hex}" stroke="#00000022"/>
-        <line x1="98" y1="60" x2="98" y2="76" stroke="#00000030" stroke-width="1.2"/>
+        <path d="M62,58 L138,58 L148,${sleeveEnd} L128,94 L128,${hemY} L72,${hemY} L72,94 L52,${sleeveEnd} Z" fill="${hex}" stroke="#00000022"/>
+        <line x1="98" y1="58" x2="98" y2="76" stroke="#00000030" stroke-width="1.2"/>
         <circle cx="98" cy="66" r="1.3" fill="#00000040"/><circle cx="98" cy="72" r="1.3" fill="#00000040"/>
         ${texturePattern(fab)}
       `);
@@ -311,6 +344,13 @@ function garmentLayer(item) {
         <path d="M96,64 L88,110 L100,80 Z" fill="#00000018"/>
         <path d="M104,64 L112,110 L100,80 Z" fill="#00000018"/>
       `, 'opacity="0.98"');
+    }
+    case 'kurta': {
+      return g(`
+        <path d="M70,58 L130,58 L150,100 L134,108 L124,90 L124,230 L76,230 L76,90 L66,108 L50,100 Z" fill="${hex}" stroke="#00000022"/>
+        <line x1="94" y1="58" x2="94" y2="80" stroke="#00000030" stroke-width="1"/>
+        <line x1="106" y1="58" x2="106" y2="80" stroke="#00000030" stroke-width="1"/>
+      `);
     }
     case 'shell': {
       return g(`<path d="M66,56 L134,56 L154,98 L138,106 L130,88 L130,190 L70,190 L70,88 L62,106 L46,98 Z" fill="${hex}" stroke="#00000030"/>`);
@@ -383,6 +423,11 @@ function garmentLayer(item) {
 }
 
 function renderFigure() {
+  if (typeof aiState !== 'undefined' && aiState.mode === 'ai') {
+    const s = document.getElementById('ai-status');
+    if (s && aiState.lastImage) { aiState.status = 'Outfit changed — click Render to update the AI image.'; aiState.error = false; renderAIPanel(); }
+    return;
+  }
   const stage = document.getElementById('figure-stage');
   const bottom = byId(builderState.bottom);
   const footwear = byId(builderState.footwear);
@@ -416,11 +461,135 @@ function renderFigure() {
   </svg>`;
 }
 
+// ---------- Layer B: AI render ("on me") ----------
+// Nothing here ever writes your photo or API key to a file — both live only
+// in this browser's memory/localStorage, and are sent only to Google's Gemini
+// API directly from your browser when you click Render.
+const aiState = {
+  mode: 'vector',
+  photoDataUrl: localStorage.getItem('wa_photo') || null,
+  apiKey: localStorage.getItem('wa_apikey') || '',
+  model: localStorage.getItem('wa_model') || 'gemini-2.5-flash-image',
+  lastImage: null,
+  status: '',
+  error: false,
+};
+
+function setupStageTabs() {
+  document.querySelectorAll('.stage-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      aiState.mode = tab.dataset.mode;
+      document.querySelectorAll('.stage-tab').forEach(t => t.classList.toggle('active', t === tab));
+      document.getElementById('figure-stage').style.display = aiState.mode === 'vector' ? 'flex' : 'none';
+      document.getElementById('ai-panel').classList.toggle('active', aiState.mode === 'ai');
+      if (aiState.mode === 'ai') renderAIPanel();
+    });
+  });
+}
+
+function outfitCacheKey() {
+  const ids = SLOTS.concat(ACCESSORY_SLOTS).map(s => builderState[s] || '-').join('|');
+  return `wa_render_${ids}_${builderState.tuck}_${builderState.roll}_${builderState.breakStyle}`;
+}
+
+function outfitPromptText() {
+  const parts = [...SLOTS, ...ACCESSORY_SLOTS].map(s => byId(builderState[s])).filter(Boolean);
+  const desc = parts.map(i => `${i.colorName} ${i.brand} ${i.name} (${i.fabric})`).join(', ');
+  return `Photorealistic full-body photo of the same person shown in the reference photo, keeping their face and identity accurate and unchanged. They are wearing: ${desc || 'their current clothing'}. Tuck style: ${builderState.tuck}. Trouser break: ${builderState.breakStyle}. Natural daylight, neutral studio or office background, business-casual context, standing pose, realistic fabric drape and fit.`;
+}
+
+function renderAIPanel() {
+  const el = document.getElementById('ai-panel');
+  el.innerHTML = `
+    <div class="ai-field">
+      <label>Your reference photo</label>
+      <input type="file" id="ai-photo-input" accept="image/*">
+      ${aiState.photoDataUrl ? `<img class="ai-photo-preview" src="${aiState.photoDataUrl}">` : ''}
+      <label class="ai-checkbox"><input type="checkbox" id="ai-remember-photo" ${localStorage.getItem('wa_photo') ? 'checked' : ''}> Remember this photo in my browser (localStorage) — never committed to the repo</label>
+    </div>
+    <div class="ai-field">
+      <label>Gemini API key</label>
+      <input type="password" id="ai-key-input" placeholder="Paste your own key — never hardcoded, never saved to any file" value="${aiState.apiKey}">
+      <label class="ai-checkbox"><input type="checkbox" id="ai-remember-key" ${localStorage.getItem('wa_apikey') ? 'checked' : ''}> Remember key in this browser</label>
+      <div class="ai-hint">Get a key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>.</div>
+    </div>
+    <div class="ai-field">
+      <label>Model</label>
+      <input type="text" id="ai-model-input" value="${aiState.model}">
+      <div class="ai-hint">Defaults to a current image-capable Gemini model. If rendering fails with a model-not-found error, check Google AI Studio for the current model name and update this field.</div>
+    </div>
+    <button class="ai-render-btn" id="ai-render-btn">Render this outfit on me</button>
+    <div class="ai-status ${aiState.error ? 'error' : ''}" id="ai-status">${aiState.status}</div>
+    <div class="ai-privacy">Your photo and key live only in this browser (memory, or localStorage if you check "remember"). They're sent only to Google's API when you click Render — never written to any file, never part of what gets committed to git.</div>
+  `;
+  document.getElementById('ai-photo-input').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => { aiState.photoDataUrl = reader.result; renderAIPanel(); };
+    reader.readAsDataURL(file);
+  });
+  document.getElementById('ai-render-btn').addEventListener('click', runAIRender);
+}
+
+async function runAIRender() {
+  const keyInput = document.getElementById('ai-key-input').value.trim();
+  const modelInput = document.getElementById('ai-model-input').value.trim();
+  const rememberPhoto = document.getElementById('ai-remember-photo').checked;
+  const rememberKey = document.getElementById('ai-remember-key').checked;
+  aiState.apiKey = keyInput; aiState.model = modelInput || aiState.model;
+
+  if (rememberPhoto && aiState.photoDataUrl) { try { localStorage.setItem('wa_photo', aiState.photoDataUrl); } catch(e) {} }
+  else localStorage.removeItem('wa_photo');
+  if (rememberKey && aiState.apiKey) localStorage.setItem('wa_apikey', aiState.apiKey);
+  else localStorage.removeItem('wa_apikey');
+  if (modelInput) localStorage.setItem('wa_model', modelInput);
+
+  if (!aiState.photoDataUrl) { aiState.status = 'Upload a reference photo first.'; aiState.error = true; renderAIPanel(); return; }
+  if (!aiState.apiKey) { aiState.status = 'Enter your Gemini API key first — the Vector Preview tab works with no key at all.'; aiState.error = true; renderAIPanel(); return; }
+
+  const cacheKey = outfitCacheKey();
+  const cached = localStorage.getItem(cacheKey);
+  if (cached) { aiState.lastImage = cached; aiState.status = 'Loaded from cache — this exact outfit was already rendered.'; aiState.error = false; showAIImage(cached); renderAIPanel(); return; }
+
+  aiState.status = 'Rendering… this calls Google\'s Gemini API directly from your browser and can take 10-20 seconds.'; aiState.error = false; renderAIPanel();
+
+  try {
+    const [, mime, b64] = aiState.photoDataUrl.match(/^data:(.+);base64,(.+)$/);
+    const body = {
+      contents: [{ parts: [
+        { text: outfitPromptText() },
+        { inline_data: { mime_type: mime, data: b64 } }
+      ]}]
+    };
+    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${aiState.model}:generateContent?key=${aiState.apiKey}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+    });
+    if (!resp.ok) { const t = await resp.text(); throw new Error(`API error ${resp.status}: ${t.slice(0,200)}`); }
+    const data = await resp.json();
+    const imgPart = data.candidates?.[0]?.content?.parts?.find(p => p.inline_data || p.inlineData);
+    const inline = imgPart?.inline_data || imgPart?.inlineData;
+    if (!inline) throw new Error('No image returned — the model may not support image output, or the prompt was refused.');
+    const dataUrl = `data:${inline.mime_type || inline.mimeType};base64,${inline.data}`;
+    try { localStorage.setItem(cacheKey, dataUrl); } catch (e) { /* storage full — render still shows, just won't cache */ }
+    aiState.lastImage = dataUrl; aiState.status = 'Rendered.'; aiState.error = false;
+    showAIImage(dataUrl);
+  } catch (err) {
+    aiState.status = `Couldn't render: ${err.message}. Falling back to the Vector Preview.`; aiState.error = true;
+  }
+  renderAIPanel();
+}
+
+function showAIImage(dataUrl) {
+  const stage = document.getElementById('figure-stage');
+  stage.innerHTML = `<img src="${dataUrl}" alt="AI render of the selected outfit">`;
+}
+
 // ---------- Scoring engine ----------
 const FORMALITY_RANK = {
   'athleisure':0, 'athletic':0, 'streetwear':1, 'rugged-casual':1, 'casual':2,
   'elevated-casual':3, 'smart-casual':3, 'utility':3, 'business-casual':4, 'escalation':5,
-  'everyday':null, 'versatile':null
+  'everyday':null, 'versatile':null, 'festive':null
 };
 const CLIMATE_KEYWORDS = [
   { k: 'viscose', note: 'Poly-viscose can dry slowly in monsoon humidity', score: -1 },
@@ -434,10 +603,43 @@ const CLIMATE_KEYWORDS = [
   { k: 'denim', note: 'Slower-drying if caught in rain', score: 0 },
 ];
 
-function colorFamily(hex) {
-  const all = [...PALETTE.coreNeutrals.map(c=>({...c,fam:'neutral'})), ...PALETTE.hypotheses[0].colors.map(c=>({...c,fam:'winter'})), ...PALETTE.hypotheses[1].colors.map(c=>({...c,fam:'autumn'}))];
-  const match = all.find(c => c.hex.toLowerCase() === hex.toLowerCase());
-  return match ? match.fam : 'other';
+function hexToRgb(hex) {
+  const h = hex.replace('#','');
+  return { r: parseInt(h.substring(0,2),16), g: parseInt(h.substring(2,4),16), b: parseInt(h.substring(4,6),16) };
+}
+function hexToHsl(hex) {
+  let { r, g, b } = hexToRgb(hex); r/=255; g/=255; b/=255;
+  const max = Math.max(r,g,b), min = Math.min(r,g,b);
+  let h, s, l = (max+min)/2;
+  if (max === min) { h = s = 0; }
+  else {
+    const d = max - min;
+    s = l > 0.5 ? d/(2-max-min) : d/(max+min);
+    switch (max) {
+      case r: h = (g-b)/d + (g<b?6:0); break;
+      case g: h = (b-r)/d + 2; break;
+      default: h = (r-g)/d + 4;
+    }
+    h *= 60;
+  }
+  return { h, s, l };
+}
+function rgbDist(hexA, hexB) {
+  const a = hexToRgb(hexA), b = hexToRgb(hexB);
+  return Math.sqrt((a.r-b.r)**2 + (a.g-b.g)**2 + (a.b-b.b)**2);
+}
+// Real classification: desaturated/near-white/near-black = neutral; otherwise
+// find the nearest named palette colour (by RGB distance) to tag a family,
+// falling back to 'other' when nothing is a close match.
+function classifyColor(hex) {
+  const { s, l } = hexToHsl(hex);
+  if (s < 0.18 || l > 0.87 || l < 0.14) return { neutral: true, fam: 'neutral' };
+  const winter = PALETTE.hypotheses.find(h => h.id === 'winter').colors;
+  const autumn = PALETTE.hypotheses.find(h => h.id === 'autumn').colors;
+  let best = null, bestFam = null, bestDist = Infinity;
+  winter.forEach(c => { const d = rgbDist(hex, c.hex); if (d < bestDist) { bestDist = d; best = c; bestFam = 'winter'; } });
+  autumn.forEach(c => { const d = rgbDist(hex, c.hex); if (d < bestDist) { bestDist = d; best = c; bestFam = 'autumn'; } });
+  return { neutral: false, fam: bestDist < 95 ? bestFam : 'other', nearest: best ? best.name : null };
 }
 
 function renderScores() {
@@ -448,21 +650,27 @@ function renderScores() {
     return;
   }
 
-  // Colour harmony
-  const hexes = active.map(i => i.hex);
-  const fams = hexes.map(colorFamily);
-  const nonNeutral = fams.filter(f => f !== 'neutral');
-  const winterCount = nonNeutral.filter(f => f === 'winter').length;
-  const autumnCount = nonNeutral.filter(f => f === 'autumn').length;
+  // Colour harmony — real classification per item, not exact-hex lookup
+  const classified = active.map(i => ({ item: i, ...classifyColor(i.hex) }));
+  const accents = classified.filter(c => !c.neutral);
+  const winterAccents = accents.filter(c => c.fam === 'winter');
+  const autumnAccents = accents.filter(c => c.fam === 'autumn');
   let colorScore, colorNote, colorClass;
-  if (hexes.length !== new Set(hexes).size + 0 && nonNeutral.length <= 1) {
-    colorScore = 'Clean'; colorClass='score-good'; colorNote = 'Neutral-anchored with at most one statement colour — safe under either palette hypothesis.';
-  } else if (winterCount > 0 && autumnCount > 0) {
-    colorScore = 'Untested'; colorClass='score-warn'; colorNote = 'Mixing a Deep Winter colour with a Deep Autumn colour in the same outfit — fine as a personal choice, but this combination hasn\'t been validated by the swatch test yet.';
-  } else if (nonNeutral.length >= 3) {
-    colorScore = 'Busy'; colorClass='score-warn'; colorNote = `${nonNeutral.length} non-neutral colours at once exceeds the 3-colour ceiling from §0.3 — consider dropping one to a neutral.`;
+  if (accents.length === 0) {
+    colorScore = 'All Neutral'; colorClass = 'score-good';
+    colorNote = 'Every piece reads as neutral — very safe. Add one accent piece if you want more personality.';
+  } else if (accents.length === 1) {
+    colorScore = 'Clean'; colorClass = 'score-good';
+    colorNote = `One deliberate accent (${accents[0].item.colorName}) against a neutral base — squarely in the 60/30/10 zone.`;
+  } else if (accents.length === 2 && winterAccents.length > 0 && autumnAccents.length > 0) {
+    colorScore = 'Untested'; colorClass = 'score-warn';
+    colorNote = `${winterAccents[0].item.colorName} (Deep Winter track) and ${autumnAccents[0].item.colorName} (Deep Autumn track) together — fine as a personal choice, but this specific pairing hasn't been validated by the swatch test yet.`;
+  } else if (accents.length === 2) {
+    colorScore = 'Bold, deliberate'; colorClass = 'score-good';
+    colorNote = `Two accents (${accents.map(a=>a.item.colorName).join(', ')}) — bolder than the safe default, but from the same palette track.`;
   } else {
-    colorScore = 'Good'; colorClass='score-good'; colorNote = 'Within the palette rules — a neutral base with a deliberate accent.';
+    colorScore = 'Busy'; colorClass = 'score-warn';
+    colorNote = `${accents.length} non-neutral colours at once (${accents.map(a=>a.item.colorName).join(', ')}) exceeds the 3-colour ceiling from §0.3 — consider dropping one to a neutral.`;
   }
 
   // Formality
@@ -472,7 +680,7 @@ function renderScores() {
   const rankLabels = ['Athleisure / Loungewear','Casual','Casual','Elevated Casual','Business Casual','Escalation / Client-ready'];
   let formalityNote = '';
   if (maxRank !== null && minRank !== null && maxRank - minRank >= 3) {
-    formalityNote = `Formality mismatch: pairing something as dressed-up as ${rankLabels[maxRank]} with something as casual as ${rankLabels[minRank]} reads as a mistake, not a style choice — this is the exact failure mode flagged in Phase 2 (blazer + jogger, or Derby + athleisure trouser).`;
+    formalityNote = `Formality mismatch: pairing something as dressed-up as ${rankLabels[maxRank]} with something as casual as ${rankLabels[minRank]} reads as a mistake, not a style choice — this is the exact failure mode flagged in Phase 2 (Derby + athleisure trouser).`;
   }
   const formalityLabel = minRank !== null ? rankLabels[minRank] : '—';
 
@@ -482,10 +690,6 @@ function renderScores() {
   if (bottomItem && bottomItem.shape === 'jogger') proportionNotes.push('Elastic-waist jogger reads athleisure regardless of what it\'s paired with (Phase 2\'s core finding).');
   if (builderState.breakStyle === 'full') proportionNotes.push('Full break is the single most leg-shortening trouser choice for a 172cm frame (§0.4) — consider quarter or no-break.');
   if (builderState.outerwear && !builderState.top) proportionNotes.push('Outerwear with no base layer selected — pick a top to see the full silhouette.');
-  const outerItem = byId(builderState.outerwear);
-  if (outerItem && outerItem.shape === 'blazer' && bottomItem && ['athleisure','athletic'].includes(bottomItem.formality)) {
-    proportionNotes.push('A blazer over athleisure trousers is a direct formality contradiction — the jacket signals escalation, the trouser cancels it.');
-  }
 
   // Climate
   const climateHits = [];
@@ -528,6 +732,7 @@ async function init() {
   renderFramework();
   renderArchetypes();
   populateBuilderOptions();
+  setupStageTabs();
   renderFigure();
   renderScores();
   const initial = location.hash.replace('#','') || 'wardrobe';

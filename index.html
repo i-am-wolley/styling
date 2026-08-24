@@ -72,7 +72,14 @@
       </div>
       <div class="builder">
         <div class="slot-panel" id="slot-panel"></div>
-        <div class="figure-stage" id="figure-stage"></div>
+        <div>
+          <div class="stage-tabs">
+            <button class="stage-tab active" data-mode="vector">Vector Preview</button>
+            <button class="stage-tab" data-mode="ai">Render on Me (AI)</button>
+          </div>
+          <div class="figure-stage" id="figure-stage"></div>
+          <div class="ai-panel" id="ai-panel"></div>
+        </div>
         <div class="score-panel" id="score-panel"></div>
       </div>
     </section>
@@ -81,8 +88,9 @@
       <div class="view-head">
         <p class="view-kicker">06 · Curated</p>
         <h1 class="view-title">Pairings</h1>
-        <p class="view-sub">Ready-made combinations with the colour reasoning made explicit — not just what to wear, but why it works.</p>
+        <p class="view-sub">What pairs with what — filter by occasion, and toggle whether Roadmap-only combinations show up.</p>
       </div>
+      <div id="pairings-filters"></div>
       <div id="pairings-body"></div>
     </section>
 
