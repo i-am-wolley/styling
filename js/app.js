@@ -281,44 +281,75 @@ function wearLook(look) {
   populateBuilderOptions(); renderFigure(); renderScores();
 }
 
+// Compact rows, same visual language as the Suggested Pairings rows below — one look
+// per line (swatches + name + occasion + verdict badge), expanding inline on click to
+// show the "why", the exact rule reason if flagged, and the "Wear this" action. Keeps
+// 20 curated looks from dominating the page the way full cards did.
+let expandedLookId = null;
+
 function renderCompleteLooks() {
+  const el = document.getElementById('looks-panel');
+  if (!el) return;
   const occasions = ['all', 'work', 'family', 'travel'];
   const chips = occasions.map(o => `<button class="filter-chip occasion-chip ${pairingsFilter.occasion === o ? 'active' : ''}" data-occasion="${o}">${o}</button>`).join('');
   const looks = classifyLooks(pairingsFilter.occasion, pairingsFilter.ownedOnly);
 
-  const cards = looks.length ? looks.map(l => {
-    const swatches = l.items.map(i => `<span class="pairing-swatch" style="background:${i.hex}" title="${i.name} — ${i.colorName}"></span>`).join('');
-    const badge = !l.valid ? `<span class="tag adv">flagged</span>` : l.soft.length ? `<span class="tag mod">caveat</span>` : `<span class="tag essential">passes rules</span>`;
-    const reasonNote = !l.valid
-      ? `<div class="score-note score-bad">No longer recommended: ${l.hard.join(' ')}</div>`
-      : l.soft.length ? `<div class="score-note score-warn">${l.soft.join(' ')}</div>` : '';
+  const rows = looks.length ? looks.map(l => {
+    const swatches = l.items.map(i => `<span class="suggest-swatch" style="background:${i.hex}" title="${i.name} — ${i.colorName}"></span>`).join('');
+    const flag = !l.valid ? 'bad' : l.soft.length ? 'caution' : 'good';
+    const badgeClass = flag === 'good' ? 'essential' : flag === 'caution' ? 'high' : 'adv';
+    const badgeText = flag === 'good' ? 'passes' : flag === 'caution' ? 'caveat' : 'flagged';
+    const expanded = expandedLookId === l.pairing.id;
     const missing = l.items.filter(i => !i.owned).map(i => i.name).join(', ');
-    return `
-      <div class="pairing-card">
-        <div class="pairing-head">
-          <span class="pairing-name">${l.pairing.name}</span>
-          ${badge}
-        </div>
-        <div class="pairing-occasion">${l.pairing.occasions.join(' · ')}</div>
-        <div class="pairing-swatches">${swatches}</div>
+    const detail = expanded ? `
+      <div class="look-detail">
         <div class="pairing-why">${l.pairing.why}</div>
-        ${reasonNote}
+        ${!l.valid ? `<div class="score-note score-bad">No longer recommended: ${l.hard.join(' ')}</div>` : ''}
+        ${l.soft.length ? `<div class="score-note score-warn">${l.soft.join(' ')}</div>` : ''}
         ${missing ? `<div class="pairing-missing">Needs from Roadmap: ${missing}</div>` : ''}
         <button class="wear-this-btn" data-look="${l.pairing.id}" ${l.valid ? '' : 'disabled'}>${l.valid ? 'Wear this' : "Can't wear — rules changed"}</button>
+      </div>` : '';
+    return `
+      <div class="look-item">
+        <button class="suggest-row flag-${flag}" data-look-toggle="${l.pairing.id}">
+          <span class="suggest-swatches">${swatches}</span>
+          <span class="suggest-label">${l.pairing.name}</span>
+          <span class="tag neutral">${l.pairing.occasions.join('/')}</span>
+          <span class="tag ${badgeClass}">${badgeText}</span>
+        </button>
+        ${detail}
       </div>`;
   }).join('') : `<div class="score-note">No curated looks tagged for this occasion yet.</div>`;
 
-  return `
+  el.innerHTML = `
     <div class="score-card">
       <h5>Complete Looks</h5>
-      <div class="filter-bar" style="margin-bottom:.7rem;">${chips}</div>
+      <div class="filter-bar" style="margin-bottom:.6rem;">${chips}</div>
       <label class="toggle-label" style="margin-bottom:0;"><input type="checkbox" id="looks-owned-only" ${pairingsFilter.ownedOnly ? 'checked' : ''}> Only show looks I can wear right now</label>
     </div>
-    ${cards}
+    ${rows}
   `;
+  el.querySelectorAll('.occasion-chip').forEach(chip => {
+    chip.addEventListener('click', () => { pairingsFilter.occasion = chip.dataset.occasion; renderCompleteLooks(); });
+  });
+  const ownedOnlyCb = el.querySelector('#looks-owned-only');
+  if (ownedOnlyCb) ownedOnlyCb.addEventListener('change', () => { pairingsFilter.ownedOnly = ownedOnlyCb.checked; renderCompleteLooks(); });
+  el.querySelectorAll('[data-look-toggle]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.lookToggle;
+      expandedLookId = expandedLookId === id ? null : id;
+      renderCompleteLooks();
+    });
+  });
+  el.querySelectorAll('.wear-this-btn:not([disabled])').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const look = PAIRINGS.find(p => p.id === btn.dataset.look);
+      if (look) wearLook(look);
+    });
+  });
 }
 
-function renderPairingsPanel() {
+function renderSuggestedPairings() {
   const el = document.getElementById('pairings-panel');
   if (!el) return;
   const topItem = byId(builderState.top);
@@ -334,22 +365,30 @@ function renderPairingsPanel() {
       ${flag !== 'good' ? `<span class="suggest-reason">${flag === 'bad' ? x.hard.join(' ') : x.soft}</span>` : ''}
     </button>`;
 
-  const tierBlock = (groups, slot) => {
-    const parts = [];
-    if (groups.good.length) parts.push(`<div class="pairing-tier-label good">Works</div>${groups.good.map(x => rowHtml(x, slot, 'good')).join('')}`);
-    if (groups.caution.length) parts.push(`<div class="pairing-tier-label caution">Works, with a caveat</div>${groups.caution.map(x => rowHtml(x, slot, 'caution')).join('')}`);
-    if (groups.bad.length) parts.push(`<div class="pairing-tier-label bad">Won't work</div>${groups.bad.map(x => rowHtml(x, slot, 'bad')).join('')}`);
-    if (!groups.good.length && !groups.caution.length) parts.push(`<div class="score-note score-bad">Can't be paired — nothing in the wardrobe or roadmap is compatible.</div>`);
-    return parts.join('');
+  // Tiers now render as side-by-side columns (tier-row) instead of a stacked list,
+  // since this panel spans the full builder width once it's its own row below.
+  const tierCol = (items, slot, flag, label) => !items.length ? '' : `
+    <div class="tier-col">
+      <div class="pairing-tier-label ${flag}">${label}</div>
+      ${items.map(x => rowHtml(x, slot, flag)).join('')}
+    </div>`;
+  const tierRow = (groups, slot) => {
+    const cols = [
+      tierCol(groups.good, slot, 'good', 'Works'),
+      tierCol(groups.caution, slot, 'caution', 'Works, with a caveat'),
+      tierCol(groups.bad, slot, 'bad', "Won't work"),
+    ].join('');
+    if (!groups.good.length && !groups.caution.length) return `<div class="score-note score-bad">Can't be paired — nothing in the wardrobe or roadmap is compatible.</div>`;
+    return `<div class="tier-row">${cols}</div>`;
   };
 
   let body;
   if (!topItem && !bottomItem) {
     body = `<div class="score-note">Pick a top or bottom to see what genuinely works with it — and what's explicitly flagged as a bad match, not just silently left out.</div>`;
   } else if (topItem && !bottomItem) {
-    body = tierBlock(classifyPartners(topItem, allBottoms), 'bottom');
+    body = tierRow(classifyPartners(topItem, allBottoms), 'bottom');
   } else if (bottomItem && !topItem) {
-    body = tierBlock(classifyPartners(bottomItem, allTops), 'top');
+    body = tierRow(classifyPartners(bottomItem, allTops), 'top');
   } else {
     const verdict = pairCompatibility(topItem, bottomItem);
     const thisPairing = verdict.compatible
@@ -358,32 +397,22 @@ function renderPairingsPanel() {
     body = `
       ${thisPairing}
       <div class="pairing-tier-label good" style="margin-top:1rem;">Other bottoms for this top</div>
-      ${tierBlock(classifyPartners(topItem, allBottoms.filter(b => b.id !== bottomItem.id)), 'bottom')}
+      ${tierRow(classifyPartners(topItem, allBottoms.filter(b => b.id !== bottomItem.id)), 'bottom')}
     `;
   }
 
-  el.innerHTML = `
-    ${renderCompleteLooks()}
-    <div class="score-card"><h5>Suggested Pairings</h5></div>
-    <div class="score-card">${body}</div>
-  `;
-  el.querySelectorAll('.occasion-chip').forEach(chip => {
-    chip.addEventListener('click', () => { pairingsFilter.occasion = chip.dataset.occasion; renderPairingsPanel(); });
-  });
-  const ownedOnlyCb = el.querySelector('#looks-owned-only');
-  if (ownedOnlyCb) ownedOnlyCb.addEventListener('change', () => { pairingsFilter.ownedOnly = ownedOnlyCb.checked; renderPairingsPanel(); });
-  el.querySelectorAll('.wear-this-btn:not([disabled])').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const look = PAIRINGS.find(p => p.id === btn.dataset.look);
-      if (look) wearLook(look);
-    });
-  });
+  el.innerHTML = `<div class="score-card"><h5>Suggested Pairings</h5></div><div class="score-card">${body}</div>`;
   el.querySelectorAll('.suggest-row:not([disabled])').forEach(btn => {
     btn.addEventListener('click', () => {
       builderState[btn.dataset.slot] = btn.dataset.id;
       populateBuilderOptions(); renderFigure(); renderScores();
     });
   });
+}
+
+function renderPairingsPanel() {
+  renderCompleteLooks();
+  renderSuggestedPairings();
 }
 
 // ---------- Dictionary ----------
