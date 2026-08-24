@@ -144,7 +144,6 @@ function renderWardrobe() {
         </div>
         <div class="field">${i.fabric}</div>
         <div class="field"><b>Formality:</b> ${i.formality} · <b>Versatility:</b> ${i.versatility}/5</div>
-        ${i.note ? `<div class="field" style="color:var(--ink-faint);font-style:italic;">${i.note}</div>` : ''}
       </div>`).join('');
   }
   draw('all');
