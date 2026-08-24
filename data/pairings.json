@@ -1,0 +1,50 @@
+[
+  {
+    "id": "pairing-client-day",
+    "name": "The Client Day",
+    "occasion": "Escalation — leadership-visible, client-facing",
+    "items": ["blazer-navy", "mtm-shirt-white", "trouser-charcoal", "redtape-derby", "belt-tan", "watch-1"],
+    "colorRule": "Analogous neutrals, 60/30/10",
+    "whyItWorks": "Navy blazer is the 60% dominant, white shirt the 30% secondary, tan belt and steel watch the 10% accent — textbook 60/30/10 with only two neutrals and one metal doing all the work. It's also the one outfit in this wardrobe that finally gives the Red Tape Derby a reason to leave the box: a business-casual trouser and a tan belt in its own leather family."
+  },
+  {
+    "id": "pairing-daily-elevated",
+    "name": "Daily Elevated Casual",
+    "occasion": "GCC baseline — no jacket needed",
+    "items": ["polo-emerald", "chino-navy", "loafers-tan"],
+    "colorRule": "Analogous cool, validated jewel accent near face",
+    "whyItWorks": "Emerald is one of only two directly-validated colours in the whole palette — worn daily, self-named best piece. Putting it where it matters most (near the face, on the polo) and letting navy carry the rest keeps the outfit calm without being boring. This is the shape most of your actual workdays should take, per Phase 0's GCC-baseline finding."
+  },
+  {
+    "id": "pairing-weekend-jewel",
+    "name": "Weekend, Jewel Accent",
+    "occasion": "Weekend, family time",
+    "items": ["zara-tee-purple", "levis-511-olive", "puma-court", "zweig-glasses"],
+    "colorRule": "Face-vs-below-waist bridge",
+    "whyItWorks": "Your favourite tee (dusty purple, a cool jewel tone) stays near the face where the Deep Winter evidence is strongest; the olive Levi's — an earth tone — sits below the waist where §Phase 3's rule says undertone match matters far less. It's a genuine bridge between both palette hypotheses rather than a bet on either one, and it's already built entirely from pieces you own and love."
+  },
+  {
+    "id": "pairing-ac-swing",
+    "name": "The AC-Swing Fix",
+    "occasion": "Office day, humid commute + cold AC",
+    "items": ["polo-navy", "chino-navy", "overshirt", "loafers-tan"],
+    "colorRule": "Column of colour (tonal navy)",
+    "whyItWorks": "Navy polo and navy chino form a continuous tonal column — no horizontal break at the waist, which reads taller per §0.4. The stone overshirt is the decoupled layer from §0.5: worn only indoors, removed at the door, so you're never fighting both the humid outdoor commute and the cold office in the same fixed-weight garment."
+  },
+  {
+    "id": "pairing-autumn-test",
+    "name": "The Autumn-Hypothesis Test",
+    "occasion": "A deliberate palette experiment",
+    "items": ["zara-tee-olive", "levis-511-olive", "woodland-trekking"],
+    "colorRule": "Monochromatic warm earth",
+    "whyItWorks": "This outfit is designed to test the Deep Autumn hypothesis directly — olive top-to-bottom, worn in real daylight, is the single fastest way to see whether the warm-earth read from your best-lit photo actually holds against your skin, before committing real money to the mustard/rust track in Phase 3's palette. It also finally activates the Woodland boot."
+  },
+  {
+    "id": "pairing-weekend-denim",
+    "name": "Weekend Denim",
+    "occasion": "Elevated weekend — not client-facing",
+    "items": ["jeans-dark", "polo-charcoal", "puma-court", "belt-tan"],
+    "colorRule": "Dark neutral column",
+    "whyItWorks": "Dark rigid denim plus charcoal removes any belt-colour anxiety — dark denim reads fine against either the tan belt here or a future black one. This is the outfit Phase 4 specifically flagged the new jeans for: elevated but relaxed, save the tailored trousers for anything client-facing."
+  }
+]

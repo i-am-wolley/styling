@@ -1,0 +1,43 @@
+{
+  "confidence": "provisional — split between two hypotheses, pending a real daylight swatch test",
+  "coreNeutrals": [
+    { "name": "Charcoal", "hex": "#383B3E" },
+    { "name": "Navy", "hex": "#1C2A47" },
+    { "name": "Soft Ecru", "hex": "#F1EEE6" },
+    { "name": "Stone / Taupe", "hex": "#8B8175" }
+  ],
+  "hypotheses": [
+    {
+      "id": "winter",
+      "name": "Deep Winter",
+      "evidence": "Self-named favourites: emerald glasses (worn daily), dusty-purple tee — both clear, cool jewel tones, chosen and loved.",
+      "colors": [
+        { "name": "Emerald", "hex": "#155C46" },
+        { "name": "Burgundy / Wine", "hex": "#6B1E33" },
+        { "name": "Jewel Purple", "hex": "#5A3E74" },
+        { "name": "Cobalt / Sapphire", "hex": "#28477E" }
+      ]
+    },
+    {
+      "id": "autumn",
+      "name": "Deep Autumn",
+      "evidence": "Best-lit photo (overcast daylight): skin holds real warmth despite the light's cooling cast; a mustard tee reads genuinely well in that photo.",
+      "colors": [
+        { "name": "Mustard Gold", "hex": "#B8892B" },
+        { "name": "Rust", "hex": "#7A3B1E" },
+        { "name": "Deep Bottle Green", "hex": "#2E4A38" },
+        { "name": "Chocolate", "hex": "#4A3524" }
+      ]
+    }
+  ],
+  "rules": {
+    "ratio": "60/30/10 — dominant neutral, secondary colour, accent",
+    "maxColors": 3,
+    "faceRule": "Near the face (tops, shirts, knitwear): core neutrals + clear jewel tones. Below the waist (trousers, shoes): far more forgiving — existing olive/khaki/camel all work here regardless of which hypothesis is correct.",
+    "harmonySchemes": {
+      "safe": ["analogous", "monochromatic"],
+      "accentOnly": ["complementary (never 50/50, one dominates)"],
+      "avoid": ["triadic and split-complementary as literal 3-hue combos — collapse to two colours plus a neutral instead"]
+    }
+  }
+}

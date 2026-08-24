@@ -1,0 +1,47 @@
+{
+  "recommendation": "A blend, not a single label: roughly 65% Elevated Basics as the load-bearing daily layer — it's the most budget-friendly, lowest-risk archetype, and matches your confirmed risk-averse buying pattern in a senior-visibility office where a strong subcultural point of view can be a liability. About 30% New Prep colour and proportion sensibility layered on top — its documented palette (sherbet tones, burgundy, forest green, mustard) is close to your own validated jewel-tone and earth-tone affinities, and its loose-top/trim-trouser logic matches your stated dislike of tight tees and liking for slim-through-the-leg trousers. The remaining 5-10% is one deliberate Lewis-Hamilton-style accent per outfit — a bold colour or texture choice, kept singular rather than head-to-toe, echoing the 'airport-layering,' not red-carpet, register you named as your actual reference. Old Money/Quiet Luxury and Scandi/Japanese Minimalism are deliberately excluded as primary identities — both fight your genuine colour affinities. Techwear/gorpcore is excluded on climate physics and formality ceiling alone. Full Italian sprezzatura is excluded because getting 'studied carelessness' wrong in a senior-visibility context reads as simply careless, not as a style.",
+  "archetypes": [
+    {
+      "name": "Old Money / Quiet Luxury",
+      "summary": "Traces from the early-20th-century 'Great Male Renunciation' through East Coast WASP dynasties to the Succession-driven 2022-24 revival. Markers: unbranded but investment-grade fabric, muted neutral palette, understated cut over logo-forward pieces.",
+      "cost": "Genuinely expensive at the source — the aesthetic relies on inherited or investment-tier pieces (Loro Piana, Hermès, Savile Row), not achievable by imitation at a medium budget without reading as costume.",
+      "limitation": "Its own marketing is honest that it's gatekept; multiple critics have called it classist, and it was already being labelled dated/'recessioncore' by early 2024."
+    },
+    {
+      "name": "Ivy Style / Preppy",
+      "summary": "The actual campus uniform of the 1920s-50s — accounted for roughly 70% of US suits sold by 1957-58, exported globally via the 1965 photo book Take Ivy. Markers: OCBD shirts, sack-cut blazers, chinos, repp ties.",
+      "cost": "Far more accessible than old money — most pieces are RTW-attainable at a medium budget.",
+      "limitation": "Heavier heritage fabrics don't suit Bangalore's climate, and the aesthetic carries real, documented exclusionary history worth being aware of."
+    },
+    {
+      "name": "Italian Sprezzatura / Neapolitan Tailoring",
+      "summary": "'Studied carelessness' — coined in Castiglione's 1528 Il Cortegiano, operationalized as a tailoring philosophy in 1920s Naples (Attolini). Markers: unstructured shoulders, deliberately imperfect pocket squares, visible hand-finishing.",
+      "cost": "Expensive at the source — genuine hand-finishing is hard to fake at lower price points.",
+      "limitation": "Its own literature warns that overdone 'carelessness' reads as sloppy or insincere rather than deliberate — a real risk without fluency in the details."
+    },
+    {
+      "name": "Modern Minimalist (Scandinavian + Japanese)",
+      "summary": "Scandinavian wing draws on the real cultural doctrine of Jante's Law ('don't think you're special'); Japanese wing draws on wabi-sabi via designers like Yamamoto and Kawakubo. Markers: chromatic restraint, silhouette-driven rather than detail-driven design.",
+      "cost": "Accessible — Uniqlo and Muji are the mainstream entry points.",
+      "limitation": "The core discipline is chromatic restraint, which directly conflicts with your confirmed affinity for jewel tones and earth tones — this archetype asks you to give up exactly what you've already validated works for you."
+    },
+    {
+      "name": "Smart-Casual Chic / Elevated Basics",
+      "summary": "No real subcultural lineage — it's the convergence point of mainstream HR dress-code guidance and commercial menswear-blog advice: well-fitted basics in a coordinated palette, no strong identity attached.",
+      "cost": "The most budget-friendly archetype surveyed — built entirely from mid-market RTW.",
+      "limitation": "Without a deliberate accent, risks reading as 'well-dressed but no point of view' — competent but forgettable."
+    },
+    {
+      "name": "Techwear-adjacent Smart Casual",
+      "summary": "Descends from Arc'teryx/Acronym-style technical outerwear and 'gorpcore' (term coined 2017). Markers: technical fabrics, utility details, muted tactical palette crossing into business-casual silhouettes.",
+      "cost": "Mid-to-high — technical fabric commands a premium.",
+      "limitation": "Physically wrong for Bangalore's climate (built for cold/wet, not humid heat) and has a hard formality ceiling — it doesn't scale up to client-facing days."
+    },
+    {
+      "name": "New Prep (Ivy-Streetwear Fusion)",
+      "summary": "Contemporary — Aimé Leon Dore, Bode, Rowing Blazers. Markers: Ivy silhouettes (loose top, trim trouser) loosened and recoloured in a warmer, more expressive palette — sherbet tones, burgundy, forest green, mustard.",
+      "cost": "Mid-range — mixes accessible basics with a few splurge pieces, workable at a medium budget.",
+      "limitation": "Still an emerging, less codified identity than the others — fewer established rules to lean on, more judgment calls."
+    }
+  ]
+}

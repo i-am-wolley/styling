@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wardrobe Architect</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app">
+
+  <nav class="sidebar">
+    <div class="brand">Wardrobe Architect</div>
+    <div class="brand-sub">Personal Stylist Project</div>
+    <ul class="nav-list">
+      <li><button data-view="wardrobe" class="active">My Wardrobe</button></li>
+      <li><button data-view="palette">My Palette</button></li>
+      <li><button data-view="gaps">Gap Analysis</button></li>
+      <li><button data-view="roadmap">Roadmap</button></li>
+      <li><button data-view="builder">Outfit Builder</button></li>
+      <li><button data-view="pairings">Pairings</button></li>
+      <li><button data-view="dictionary">Styling Dictionary</button></li>
+      <li><button data-view="archetype">My Aesthetic</button></li>
+      <li><button data-view="framework">The Framework</button></li>
+    </ul>
+  </nav>
+
+  <main class="main">
+
+    <section id="view-wardrobe" class="view">
+      <div class="view-head">
+        <p class="view-kicker">01 · Inventory</p>
+        <h1 class="view-title">My Wardrobe</h1>
+        <p class="view-sub">Every piece you own, classified by formality, fabric, and versatility — straight from the Phase 2 audit.</p>
+      </div>
+      <div class="filter-bar" id="wardrobe-filters"></div>
+      <div class="grid" id="wardrobe-grid"></div>
+    </section>
+
+    <section id="view-palette" class="view">
+      <div class="view-head">
+        <p class="view-kicker">02 · Colour</p>
+        <h1 class="view-title">My Palette</h1>
+        <p class="view-sub">Provisional and evidence-weighed — two competing hypotheses, held honestly rather than forced into one answer.</p>
+      </div>
+      <div id="palette-body"></div>
+    </section>
+
+    <section id="view-gaps" class="view">
+      <div class="view-head">
+        <p class="view-kicker">03 · Audit</p>
+        <h1 class="view-title">Gap Analysis</h1>
+        <p class="view-sub">Owned vs. planned, by category.</p>
+      </div>
+      <div id="gap-body"></div>
+    </section>
+
+    <section id="view-roadmap" class="view">
+      <div class="view-head">
+        <p class="view-kicker">04 · Acquisition</p>
+        <h1 class="view-title">The Roadmap</h1>
+        <p class="view-sub">Phased and tiered. Mark items owned as you buy them — they move into My Wardrobe automatically.</p>
+      </div>
+      <div id="roadmap-body"></div>
+    </section>
+
+    <section id="view-builder" class="view">
+      <div class="view-head">
+        <p class="view-kicker">05 · Try It On</p>
+        <h1 class="view-title">Outfit Builder</h1>
+        <p class="view-sub">Pick pieces, apply a technique from the Dictionary, and get real feedback — colour harmony, formality tier, proportion, and climate suitability, scored against everything in Phases 0–5.</p>
+      </div>
+      <div class="builder">
+        <div class="slot-panel" id="slot-panel"></div>
+        <div class="figure-stage" id="figure-stage"></div>
+        <div class="score-panel" id="score-panel"></div>
+      </div>
+    </section>
+
+    <section id="view-pairings" class="view">
+      <div class="view-head">
+        <p class="view-kicker">06 · Curated</p>
+        <h1 class="view-title">Pairings</h1>
+        <p class="view-sub">Ready-made combinations with the colour reasoning made explicit — not just what to wear, but why it works.</p>
+      </div>
+      <div id="pairings-body"></div>
+    </section>
+
+    <section id="view-dictionary" class="view">
+      <div class="view-head">
+        <p class="view-kicker">07 · Reference</p>
+        <h1 class="view-title">Styling Dictionary</h1>
+        <p class="view-sub">How garments are actually worn. Every technique here is selectable in the Outfit Builder.</p>
+      </div>
+      <div id="dictionary-body"></div>
+    </section>
+
+    <section id="view-archetype" class="view">
+      <div class="view-head">
+        <p class="view-kicker">08 · Direction</p>
+        <h1 class="view-title">My Aesthetic</h1>
+        <p class="view-sub">Named style identities researched and matched against your actual preferences, budget, and buying pattern.</p>
+      </div>
+      <div id="archetype-body"></div>
+    </section>
+
+    <section id="view-framework" class="view">
+      <div class="view-head">
+        <p class="view-kicker">00 · Research</p>
+        <h1 class="view-title">The Framework</h1>
+        <p class="view-sub">The Phase 0 synthesis this entire project is built on.</p>
+      </div>
+      <div class="framework-body" id="framework-body"></div>
+    </section>
+
+    <footer class="note">Data lives in <code>/data/*.json</code> — edit those files directly to add pieces without touching any code.</footer>
+  </main>
+</div>
+<script src="js/app.js"></script>
+</body>
+</html>
