@@ -17,8 +17,7 @@
       <li><button data-view="palette">My Palette</button></li>
       <li><button data-view="gaps">Gap Analysis</button></li>
       <li><button data-view="roadmap">Roadmap</button></li>
-      <li><button data-view="builder">Outfit Builder</button></li>
-      <li><button data-view="pairings">Pairings</button></li>
+      <li><button data-view="builder">Outfit Builder &amp; Pairings</button></li>
       <li><button data-view="dictionary">Styling Dictionary</button></li>
       <li><button data-view="archetype">My Aesthetic</button></li>
       <li><button data-view="framework">The Framework</button></li>
@@ -67,8 +66,8 @@
     <section id="view-builder" class="view">
       <div class="view-head">
         <p class="view-kicker">05 · Try It On</p>
-        <h1 class="view-title">Outfit Builder</h1>
-        <p class="view-sub">Pick pieces, apply a technique from the Dictionary, and get real feedback — colour harmony, formality tier, proportion, and climate suitability, scored against everything in Phases 0–5.</p>
+        <h1 class="view-title">Outfit Builder &amp; Pairings</h1>
+        <p class="view-sub">Pick pieces, apply a technique from the Dictionary, and get real feedback — colour harmony, formality, silhouette balance, and climate suitability. Options that conflict with what you've already picked dim out automatically; suggested pairings below update to match.</p>
       </div>
       <div class="builder">
         <div class="slot-panel" id="slot-panel"></div>
@@ -82,21 +81,17 @@
         </div>
         <div class="score-panel" id="score-panel"></div>
       </div>
-    </section>
 
-    <section id="view-pairings" class="view">
-      <div class="view-head">
-        <p class="view-kicker">06 · Curated</p>
-        <h1 class="view-title">Pairings</h1>
-        <p class="view-sub">What pairs with what — filter by occasion, and toggle whether Roadmap-only combinations show up.</p>
+      <div class="section-block">
+        <div class="section-title" id="pairings-title">Suggested Pairings</div>
+        <div id="pairings-filters"></div>
+        <div id="pairings-body"></div>
       </div>
-      <div id="pairings-filters"></div>
-      <div id="pairings-body"></div>
     </section>
 
     <section id="view-dictionary" class="view">
       <div class="view-head">
-        <p class="view-kicker">07 · Reference</p>
+        <p class="view-kicker">06 · Reference</p>
         <h1 class="view-title">Styling Dictionary</h1>
         <p class="view-sub">How garments are actually worn. Every technique here is selectable in the Outfit Builder.</p>
       </div>
@@ -105,7 +100,7 @@
 
     <section id="view-archetype" class="view">
       <div class="view-head">
-        <p class="view-kicker">08 · Direction</p>
+        <p class="view-kicker">07 · Direction</p>
         <h1 class="view-title">My Aesthetic</h1>
         <p class="view-sub">Named style identities researched and matched against your actual preferences, budget, and buying pattern.</p>
       </div>

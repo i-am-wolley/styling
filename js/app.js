@@ -17,6 +17,43 @@ const byId = id => ITEMS.find(i => i.id === id);
 const owned = () => ITEMS.filter(i => i.owned);
 const roadmap = () => ITEMS.filter(i => !i.owned);
 
+// ---------- Silhouette compatibility ----------
+// General menswear proportion principle: balance loose with fitted. Two loose/baggy
+// pieces together add volume without a counterpoint (worse at 172cm, per §0.4's
+// column-of-colour and rule-of-thirds logic already in the Framework) — so baggy-on-baggy
+// is flagged as a hard rule, not just a soft warning.
+const LOOSE_SILHOUETTES = ['baggy', 'relaxed'];
+function isLoose(sil) { return LOOSE_SILHOUETTES.includes(sil); }
+function silhouetteConflict(a, b) {
+  if (!a || !b || !a.silhouette || !b.silhouette) return null;
+  if (isLoose(a.silhouette) && isLoose(b.silhouette)) {
+    return `${a.name} (${a.silhouette}) + ${b.name} (${b.silhouette}) — both loose adds volume without a counterpoint. Balance loose with fitted instead.`;
+  }
+  return null;
+}
+// Belt/shoe leather: the one exception-free coordination rule from the Dictionary.
+function leatherConflict(a, b) {
+  const leatherCats = ['footwear', 'accessory'];
+  if (!leatherCats.includes(a.category) || !leatherCats.includes(b.category)) return null;
+  const isBlack = i => (i.colorName || '').toLowerCase().includes('black');
+  const isBrown = i => ['tan', 'brown'].some(w => (i.colorName || '').toLowerCase().includes(w));
+  if ((isBlack(a) && isBrown(b)) || (isBrown(a) && isBlack(b))) {
+    return `${a.name} (${a.colorName}) + ${b.name} (${b.colorName}) — never mix black and brown leather, the one exception-free coordination rule.`;
+  }
+  return null;
+}
+function hardConflicts(candidate, againstItems) {
+  const conflicts = [];
+  againstItems.forEach(other => {
+    if (!other || other.id === candidate.id) return;
+    const s = silhouetteConflict(candidate, other);
+    if (s) conflicts.push(s);
+    const l = leatherConflict(candidate, other);
+    if (l) conflicts.push(l);
+  });
+  return conflicts;
+}
+
 // ---------- Nav ----------
 function setupNav() {
   document.querySelectorAll('.nav-list button').forEach(btn => {
@@ -161,14 +198,39 @@ function renderPairings() {
   bar.querySelectorAll('[data-occ]').forEach(b => b.addEventListener('click', () => { pairingState.occasion = b.dataset.occ; renderPairings(); }));
   bar.querySelector('#roadmap-toggle').addEventListener('change', (e) => { pairingState.showRoadmapNeeded = e.target.checked; renderPairings(); });
 
+  const selectedIds = (typeof builderState !== 'undefined')
+    ? [...SLOTS, ...ACCESSORY_SLOTS].map(s => builderState[s]).filter(Boolean)
+    : [];
+
+  const titleEl = document.getElementById('pairings-title');
+  if (titleEl) {
+    titleEl.textContent = selectedIds.length
+      ? `Suggested Pairings — built around your current picks`
+      : `Suggested Pairings — pick something above to filter these`;
+  }
+
   const el = document.getElementById('pairings-body');
-  const filtered = PAIRINGS.filter(p => {
+  let filtered = PAIRINGS.filter(p => {
     if (pairingState.occasion !== 'all' && !p.occasions.includes(pairingState.occasion)) return false;
     const items = p.items.map(byId).filter(Boolean);
     const allOwned = items.every(i => i.owned);
     if (!allOwned && !pairingState.showRoadmapNeeded) return false;
     return true;
   });
+
+  if (selectedIds.length) {
+    filtered = filtered
+      .map(p => ({ p, matchCount: p.items.filter(id => selectedIds.includes(id)).length }))
+      .filter(x => x.matchCount > 0)
+      .sort((a, b) => b.matchCount - a.matchCount)
+      .map(x => x.p);
+  }
+
+  if (!filtered.length && selectedIds.length) {
+    el.innerHTML = `<p class="field">No curated pairing includes your current pick(s) yet — that's a gap in the curated list, not a rule violation. Check the swatch options above: anything not dimmed is still rule-compatible.</p>`;
+    return;
+  }
+
   el.innerHTML = filtered.map(p => {
     const items = p.items.map(byId).filter(Boolean);
     const missing = items.filter(i => !i.owned);
@@ -180,8 +242,27 @@ function renderPairings() {
         </div>
         <div class="pairing-swatches">${items.map(i => `<div class="pairing-swatch" style="background:${i.hex}" title="${i.name}"></div>`).join('')}</div>
         <div class="pairing-why">${p.why}${missing.length ? ` <span class="pairing-missing">— needs: ${missing.map(m=>m.name).join(', ')}</span>` : ''}</div>
+        <button class="wear-this-btn" data-pairing="${p.id}">Wear this in the builder</button>
       </div>`;
   }).join('') || '<p class="field">No pairings match this filter.</p>';
+
+  el.querySelectorAll('[data-pairing]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const p = PAIRINGS.find(x => x.id === btn.dataset.pairing);
+      if (!p) return;
+      const slotForCategory = { top:'top', bottom:'bottom', outerwear:'outerwear', footwear:'footwear' };
+      p.items.map(byId).filter(Boolean).forEach(item => {
+        if (slotForCategory[item.category]) builderState[slotForCategory[item.category]] = item.id;
+        else if (item.category === 'accessory') {
+          if (item.shape === 'belt') builderState.belt = item.id;
+          else if (item.shape === 'watch') builderState.watch = item.id;
+          else if (item.shape.startsWith('glasses') || item.shape === 'sunglasses') builderState.glasses = item.id;
+        }
+      });
+      populateBuilderOptions(); renderFigure(); renderScores(); renderPairings();
+      document.getElementById('slot-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
 }
 
 // ---------- Dictionary ----------
@@ -254,6 +335,13 @@ const SLOT_HELP = {
   watch: 'Wrist accessory.',
   glasses: 'Eyewear — optical or sun.',
 };
+function currentlySelectedItems(excludeSlot) {
+  return [...SLOTS, ...ACCESSORY_SLOTS]
+    .filter(s => s !== excludeSlot)
+    .map(s => byId(builderState[s]))
+    .filter(Boolean);
+}
+
 function populateBuilderOptions() {
   const panel = document.getElementById('slot-panel');
   const accCats = { belt:'belt', watch:'watch', glasses:'glasses' };
@@ -261,16 +349,26 @@ function populateBuilderOptions() {
   SLOTS.forEach(slot => {
     const cat = slot === 'outerwear' ? 'outerwear' : slot === 'footwear' ? 'footwear' : slot;
     const options = ITEMS.filter(i => i.category === cat);
+    const against = currentlySelectedItems(slot);
     html += `<div class="slot-group"><h4>${slot}</h4><div class="slot-help">${SLOT_HELP[slot]}</div><div class="swatch-row" data-slot="${slot}">
       <button class="swatch-btn none ${!builderState[slot] ? 'selected' : ''}" data-id="" title="none">–</button>
-      ${options.map(i => `<button class="swatch-btn ${builderState[slot]===i.id?'selected':''}" data-id="${i.id}" style="background:${i.hex}" title="${i.brand} ${i.name} — ${i.colorName}"></button>`).join('')}
+      ${options.map(i => {
+        const conflicts = hardConflicts(i, against);
+        const title = `${i.brand} ${i.name} — ${i.colorName}${conflicts.length ? '\n⚠ ' + conflicts.join('\n⚠ ') : ''}`;
+        return `<button class="swatch-btn ${builderState[slot]===i.id?'selected':''} ${conflicts.length?'conflict':''}" data-id="${i.id}" style="background:${i.hex}" title="${title}"></button>`;
+      }).join('')}
     </div></div>`;
   });
   Object.entries(accCats).forEach(([slot, shapeCat]) => {
     const options = ITEMS.filter(i => i.category === 'accessory' && i.shape.startsWith(shapeCat));
+    const against = currentlySelectedItems(slot);
     html += `<div class="slot-group"><h4>${slot}</h4><div class="slot-help">${SLOT_HELP[slot]}</div><div class="swatch-row" data-slot="${slot}">
       <button class="swatch-btn none ${!builderState[slot] ? 'selected' : ''}" data-id="" title="none">–</button>
-      ${options.map(i => `<button class="swatch-btn ${builderState[slot]===i.id?'selected':''}" data-id="${i.id}" style="background:${i.hex}" title="${i.name}"></button>`).join('')}
+      ${options.map(i => {
+        const conflicts = hardConflicts(i, against);
+        const title = `${i.name}${conflicts.length ? '\n⚠ ' + conflicts.join('\n⚠ ') : ''}`;
+        return `<button class="swatch-btn ${builderState[slot]===i.id?'selected':''} ${conflicts.length?'conflict':''}" data-id="${i.id}" style="background:${i.hex}" title="${title}"></button>`;
+      }).join('')}
     </div></div>`;
   });
   html += `
@@ -290,7 +388,7 @@ function populateBuilderOptions() {
     btn.addEventListener('click', () => {
       const slot = btn.closest('.swatch-row').dataset.slot;
       builderState[slot] = btn.dataset.id || null;
-      populateBuilderOptions(); renderFigure(); renderScores();
+      populateBuilderOptions(); renderFigure(); renderScores(); renderPairings();
     });
   });
   panel.querySelectorAll('[data-tuck]').forEach(b => b.addEventListener('click', () => { builderState.tuck = b.dataset.tuck; populateBuilderOptions(); renderFigure(); renderScores(); }));
@@ -701,6 +799,30 @@ function renderScores() {
   const climateLabel = climateScoreVal > 0 ? 'Bangalore-suited' : climateScoreVal < 0 ? 'Caution' : 'Neutral';
   const climateClass = climateScoreVal > 0 ? 'score-good' : climateScoreVal < 0 ? 'score-warn' : '';
 
+  // Silhouette balance — loose vs fitted, the rule you specifically asked to have checked
+  const silhouetteItems = active.filter(i => i.silhouette);
+  let silhouetteLabel = '—', silhouetteClass = '', silhouetteNotes = [];
+  if (silhouetteItems.length >= 2) {
+    for (let a = 0; a < silhouetteItems.length; a++) {
+      for (let b = a + 1; b < silhouetteItems.length; b++) {
+        const c = silhouetteConflict(silhouetteItems[a], silhouetteItems[b]);
+        if (c) silhouetteNotes.push(c);
+      }
+    }
+    const looseCount = silhouetteItems.filter(i => isLoose(i.silhouette)).length;
+    if (silhouetteNotes.length) {
+      silhouetteLabel = 'Too much volume'; silhouetteClass = 'score-warn';
+    } else if (looseCount === 1) {
+      silhouetteLabel = 'Balanced'; silhouetteClass = 'score-good';
+      silhouetteNotes.push('One loose piece against fitted/regular pieces — classic proportion balance.');
+    } else {
+      silhouetteLabel = 'Clean'; silhouetteClass = 'score-good';
+      silhouetteNotes.push('All fitted/regular — safe, no volume conflict.');
+    }
+  } else {
+    silhouetteNotes.push('Pick at least two pieces with known silhouettes to check balance.');
+  }
+
   // Technique suggestion
   let suggestion = '';
   const topItem = byId(builderState.top);
@@ -713,6 +835,7 @@ function renderScores() {
   panel.innerHTML = `
     <div class="score-card"><h5>Colour Harmony</h5><div class="score-value ${colorClass}">${colorScore}</div><div class="score-note">${colorNote}</div></div>
     <div class="score-card"><h5>Formality Tier</h5><div class="score-value">${formalityLabel}</div>${formalityNote ? `<div class="score-note score-warn">${formalityNote}</div>` : ''}</div>
+    <div class="score-card"><h5>Silhouette Balance</h5><div class="score-value ${silhouetteClass}">${silhouetteLabel}</div>${silhouetteNotes.map(n=>`<div class="score-note ${silhouetteClass}">${n}</div>`).join('')}</div>
     <div class="score-card"><h5>Proportion (172cm)</h5>${proportionNotes.length ? proportionNotes.map(n=>`<div class="score-note score-warn">${n}</div>`).join('') : '<div class="score-note score-good">No warnings.</div>'}</div>
     <div class="score-card"><h5>Climate Suitability</h5><div class="score-value ${climateClass}">${climateLabel}</div>${climateHits.map(c=>`<div class="score-note">${c.note}</div>`).join('')}</div>
     ${suggestion ? `<div class="technique-suggest">${suggestion}</div>` : ''}
