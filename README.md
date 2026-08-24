@@ -25,19 +25,23 @@ Everything you own or plan to buy lives in `data/items.json` — one object per 
 
 ```json
 { "id": "unique-id", "name": "...", "brand": "...", "category": "top|bottom|outerwear|footwear|accessory",
-  "shape": "tee|shirt|polo|knit|blazer|overshirt|shell|chino|trouser|jogger|jeans|cargo|sneaker|derby|loafer|boot|belt|watch|glasses|glasses-angular|sunglasses",
-  "colorName": "...", "hex": "#......", "fabric": "...", "formality": "casual|smart-casual|business-casual|elevated-casual|athleisure|escalation|...",
+  "shape": "tee|shirt|polo|knit|blazer|overshirt|shell|chino|trouser|jogger|jeans|cargo|sneaker|derby|loafer|boot|belt|watch|glasses|glasses-angular|sunglasses|kurta",
+  "silhouette": "slim|tapered|regular|tailored|relaxed|baggy", "colorName": "...", "hex": "#......", "fabric": "...",
+  "formality": "casual|smart-casual|business-casual|elevated-casual|athleisure|escalation|festive|...",
   "versatility": 1-5, "owned": true|false, "status": "keep|rescue|retire" }
 ```
+
+`silhouette` drives the Outfit Builder's compatibility rules directly — two `relaxed`/`baggy` pieces together get dimmed as a silhouette conflict, and the Suggested Pairings card only recommends partners that pass this (plus a formality-gap check and, for festive pieces, keeping that register separate from Western basics). Leave `silhouette` off an item if it doesn't meaningfully apply (footwear, most accessories) — the rule simply skips items without it.
 
 For a roadmap (not-yet-owned) item, set `"owned": false` and add `"phase"` (30/90/180/365), `"tier"` ("essential"/"high-value"/"eventual"), and `"price"`.
 
 Other editable files:
 - `data/palette.json` — your colour palette and hypotheses
 - `data/dictionary.json` — styling techniques (shows in the Dictionary and drives the Outfit Builder's toggles)
-- `data/pairings.json` — curated outfit blocks with the colour reasoning written out
 - `data/archetypes.json` — style archetype research and your match
 - `data/framework.json` — condensed Phase 0 research
+
+`data/pairings.json` is no longer loaded — Suggested Pairings is now computed live from the rules above instead of a curated list, so every top and bottom gets a real, rule-checked answer (or an explicit "can't be paired") instead of only the combinations someone hand-picked in advance. The file is left in the repo in case you want to mine its written reasoning later, but nothing reads it.
 
 None of this requires touching `js/app.js` or `css/style.css` — the code just reads whatever is in these files.
 
@@ -47,4 +51,4 @@ The Outfit Builder does **not** composite real product photography. The original
 
 ## Layer B (AI render)
 
-Not yet wired up. When you're ready: it needs an image-generation API key (Gemini/Flux-class) that **you** supply — never hardcode a key into these files or commit one to a repo. Ask to have this added when you have a key in hand.
+Wired up under the "Render on Me (AI)" tab in the Outfit Builder. It needs your own reference photo and your own Gemini API key, entered in the browser — both stay in browser memory/localStorage only, never written to a file or committed. Nothing is sent anywhere except the direct browser→Google API call you trigger by clicking Render.

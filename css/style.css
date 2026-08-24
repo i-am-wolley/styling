@@ -194,6 +194,15 @@ a { color: var(--accent); }
 .score-bad { color: var(--diff-adv-ink); }
 .technique-suggest { font-size:.8rem; color:var(--ink-soft); border-left:2px solid var(--mark); padding-left:.6rem; }
 
+.suggest-row {
+  all:unset; cursor:pointer; display:flex; align-items:center; gap:.5rem; width:100%;
+  padding:.45rem .3rem; border-radius:3px; font-size:.8rem; color:var(--ink);
+}
+.suggest-row:hover { background:var(--bg); }
+.suggest-swatch { width:16px; height:16px; border-radius:3px; border:1px solid var(--chip-border); flex-shrink:0; }
+.suggest-label { flex:1; }
+.suggest-alt-label { font-size:.72rem; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.04em; margin:.6rem 0 .2rem; }
+
 /* ---- Pairings ---- */
 .pairing-card { background: var(--bg-raised); border:1px solid var(--chip-border); border-radius:4px; padding:1.1rem 1.2rem; margin-bottom:1rem; }
 .pairing-head { display:flex; justify-content:space-between; align-items:baseline; gap:1rem; flex-wrap:wrap; }

@@ -1,14 +1,13 @@
 // ---------- Data ----------
-let ITEMS = [], PALETTE = null, DICTIONARY = [], PAIRINGS = [], ARCHETYPES = null, FRAMEWORK = null;
+let ITEMS = [], PALETTE = null, DICTIONARY = [], ARCHETYPES = null, FRAMEWORK = null;
 
 async function loadData() {
-  const [items, palette, dictionary, pairings] = await Promise.all([
+  const [items, palette, dictionary] = await Promise.all([
     fetch('data/items.json').then(r => r.json()),
     fetch('data/palette.json').then(r => r.json()),
     fetch('data/dictionary.json').then(r => r.json()),
-    fetch('data/pairings.json').then(r => r.json()),
   ]);
-  ITEMS = items; PALETTE = palette; DICTIONARY = dictionary; PAIRINGS = pairings;
+  ITEMS = items; PALETTE = palette; DICTIONARY = dictionary;
   try { ARCHETYPES = await fetch('data/archetypes.json').then(r => r.json()); } catch (e) { ARCHETYPES = null; }
   try { FRAMEWORK = await fetch('data/framework.json').then(r => r.json()); } catch (e) { FRAMEWORK = null; }
 }
@@ -42,14 +41,50 @@ function leatherConflict(a, b) {
   }
   return null;
 }
+// Formality gap: a genuinely wide gap (athleisure paired with business-casual/
+// escalation) reads as a mistake, not a look — but a moderate gap (jogger + polo)
+// is completely normal, so the threshold is looser than the score panel's warning.
+function formalityGapConflict(a, b) {
+  const ra = FORMALITY_RANK[a.formality], rb = FORMALITY_RANK[b.formality];
+  if (ra == null || rb == null) return null;
+  if (Math.abs(ra - rb) >= 4) {
+    return `${a.name} (${a.formality}) + ${b.name} (${b.formality}) — too wide a formality gap to read as deliberate.`;
+  }
+  return null;
+}
+// Festive wear (kurta etc.) is its own register per §0.2 — not mixed with Western basics.
+function festiveConflict(a, b) {
+  if ((a.formality === 'festive') !== (b.formality === 'festive')) {
+    return `${a.name} is festive wear — a separate formality register, not mixed with Western business-casual basics.`;
+  }
+  return null;
+}
+// Colour-track mixing (Deep Winter accent + Deep Autumn accent together) is a soft
+// flag, not a hard exclude — real, but the swatch test is what actually resolves it.
+function colorTrackSoftFlag(a, b) {
+  const ca = classifyColor(a.hex), cb = classifyColor(b.hex);
+  if (!ca.neutral && !cb.neutral && ca.fam !== 'other' && cb.fam !== 'other' && ca.fam !== cb.fam) {
+    return `Mixes the Deep Winter and Deep Autumn palette tracks — worth a swatch test before committing (§Phase 3).`;
+  }
+  return null;
+}
+// The single shared compatibility check, used both to dim swatches in the builder
+// and to drive the Suggested Pairings card — so "what's dimmed" and "what's
+// suggested" always agree instead of drifting into two different rule sets.
+function pairCompatibility(a, b) {
+  const hard = [];
+  [silhouetteConflict, leatherConflict, formalityGapConflict, festiveConflict].forEach(fn => {
+    const r = fn(a, b);
+    if (r) hard.push(r);
+  });
+  const soft = colorTrackSoftFlag(a, b);
+  return { compatible: hard.length === 0, hard, soft };
+}
 function hardConflicts(candidate, againstItems) {
   const conflicts = [];
   againstItems.forEach(other => {
     if (!other || other.id === candidate.id) return;
-    const s = silhouetteConflict(candidate, other);
-    if (s) conflicts.push(s);
-    const l = leatherConflict(candidate, other);
-    if (l) conflicts.push(l);
+    conflicts.push(...pairCompatibility(candidate, other).hard);
   });
   return conflicts;
 }
@@ -176,93 +211,67 @@ function renderRoadmap() {
     btn.addEventListener('click', () => {
       const item = byId(btn.dataset.id);
       item.owned = !item.owned;
-      renderRoadmap(); renderWardrobe(); renderGaps(); renderPairings(); populateBuilderOptions();
+      renderRoadmap(); renderWardrobe(); renderGaps(); populateBuilderOptions(); renderScores();
     });
   });
 }
 
-// ---------- Pairings ----------
-const pairingState = { occasion: 'all', showRoadmapNeeded: true };
-function renderPairings() {
-  const bar = document.getElementById('pairings-filters');
-  const occasions = ['all','work','family','travel'];
-  bar.innerHTML = `
-    <div class="filter-bar" style="margin-bottom:.5rem;">
-      ${occasions.map(o => `<button class="filter-chip ${pairingState.occasion===o?'active':''}" data-occ="${o}">${o}</button>`).join('')}
-    </div>
-    <label class="toggle-label">
-      <input type="checkbox" id="roadmap-toggle" ${pairingState.showRoadmapNeeded ? 'checked' : ''}>
-      Include pairings that need Roadmap items you don't own yet
-    </label>
-  `;
-  bar.querySelectorAll('[data-occ]').forEach(b => b.addEventListener('click', () => { pairingState.occasion = b.dataset.occ; renderPairings(); }));
-  bar.querySelector('#roadmap-toggle').addEventListener('change', (e) => { pairingState.showRoadmapNeeded = e.target.checked; renderPairings(); });
-
-  const selectedIds = (typeof builderState !== 'undefined')
-    ? [...SLOTS, ...ACCESSORY_SLOTS].map(s => builderState[s]).filter(Boolean)
-    : [];
-
-  const titleEl = document.getElementById('pairings-title');
-  if (titleEl) {
-    titleEl.textContent = selectedIds.length
-      ? `Suggested Pairings — built around your current picks`
-      : `Suggested Pairings — pick something above to filter these`;
-  }
-
-  const el = document.getElementById('pairings-body');
-  let filtered = PAIRINGS.filter(p => {
-    if (pairingState.occasion !== 'all' && !p.occasions.includes(pairingState.occasion)) return false;
-    const items = p.items.map(byId).filter(Boolean);
-    const allOwned = items.every(i => i.owned);
-    if (!allOwned && !pairingState.showRoadmapNeeded) return false;
-    return true;
+// ---------- Suggested Pairings (dynamic, rule-based — lives in the score panel) ----------
+// Every top and bottom is guaranteed a real answer here: either a rule-compatible
+// partner (colour, silhouette, formality all checked — never a curated guess), or an
+// explicit "nothing suitable" when the catalogue genuinely has no good match.
+function suggestPartners(item, candidates) {
+  const scored = candidates
+    .filter(c => c.id !== item.id)
+    .map(c => ({ item: c, ...pairCompatibility(item, c) }))
+    .filter(x => x.compatible);
+  scored.sort((a, b) => {
+    if (!!a.soft !== !!b.soft) return a.soft ? 1 : -1; // clean matches before soft-flagged ones
+    if (a.item.owned !== b.item.owned) return a.item.owned ? -1 : 1; // owned before roadmap
+    return (b.item.versatility || 0) - (a.item.versatility || 0);
   });
+  return scored.slice(0, 5);
+}
 
-  if (selectedIds.length) {
-    filtered = filtered
-      .map(p => ({ p, matchCount: p.items.filter(id => selectedIds.includes(id)).length }))
-      .filter(x => x.matchCount > 0)
-      .sort((a, b) => b.matchCount - a.matchCount)
-      .map(x => x.p);
+function renderSuggestedPairingsCard() {
+  const topItem = byId(builderState.top);
+  const bottomItem = byId(builderState.bottom);
+  const allTops = ITEMS.filter(i => i.category === 'top' && i.formality !== 'festive');
+  const allBottoms = ITEMS.filter(i => i.category === 'bottom');
+
+  const rowHtml = (x, slot) => `
+    <button class="suggest-row" data-slot="${slot}" data-id="${x.item.id}" title="${x.soft || ''}">
+      <span class="suggest-swatch" style="background:${x.item.hex}"></span>
+      <span class="suggest-label">${x.item.name} — ${x.item.colorName}</span>
+      <span class="tag ${x.item.owned ? 'essential' : 'eventual'}" style="margin-left:auto;">${x.item.owned ? 'owned' : 'roadmap'}</span>
+    </button>`;
+
+  let body;
+  if (!topItem && !bottomItem) {
+    body = `<div class="score-note">Pick a top or bottom above to see rule-checked pairings for it.</div>`;
+  } else if (topItem && !bottomItem) {
+    const matches = suggestPartners(topItem, allBottoms);
+    body = matches.length
+      ? matches.map(x => rowHtml(x, 'bottom')).join('')
+      : `<div class="score-note score-warn">Can't be paired — nothing in the wardrobe or roadmap is silhouette- and formality-compatible with ${topItem.name}.</div>`;
+  } else if (bottomItem && !topItem) {
+    const matches = suggestPartners(bottomItem, allTops);
+    body = matches.length
+      ? matches.map(x => rowHtml(x, 'top')).join('')
+      : `<div class="score-note score-warn">Can't be paired — nothing in the wardrobe or roadmap is silhouette- and formality-compatible with ${bottomItem.name}.</div>`;
+  } else {
+    const verdict = pairCompatibility(topItem, bottomItem);
+    const altBottoms = suggestPartners(topItem, allBottoms).filter(x => x.item.id !== bottomItem.id).slice(0, 3);
+    body = `
+      <div class="score-note ${verdict.compatible ? 'score-good' : 'score-warn'}">
+        ${verdict.compatible ? 'This top + bottom pairing passes all rules.' : verdict.hard.join(' ')}
+      </div>
+      ${verdict.soft ? `<div class="score-note score-warn">${verdict.soft}</div>` : ''}
+      ${altBottoms.length ? `<div class="suggest-alt-label">Other bottoms that also work with this top:</div>${altBottoms.map(x => rowHtml(x, 'bottom')).join('')}` : ''}
+    `;
   }
 
-  if (!filtered.length && selectedIds.length) {
-    el.innerHTML = `<p class="field">No curated pairing includes your current pick(s) yet — that's a gap in the curated list, not a rule violation. Check the swatch options above: anything not dimmed is still rule-compatible.</p>`;
-    return;
-  }
-
-  el.innerHTML = filtered.map(p => {
-    const items = p.items.map(byId).filter(Boolean);
-    const missing = items.filter(i => !i.owned);
-    return `
-      <div class="pairing-card">
-        <div class="pairing-head">
-          <div class="pairing-name">${p.name}</div>
-          <div class="pairing-occasion">${p.occasions.join(' · ')}</div>
-        </div>
-        <div class="pairing-swatches">${items.map(i => `<div class="pairing-swatch" style="background:${i.hex}" title="${i.name}"></div>`).join('')}</div>
-        <div class="pairing-why">${p.why}${missing.length ? ` <span class="pairing-missing">— needs: ${missing.map(m=>m.name).join(', ')}</span>` : ''}</div>
-        <button class="wear-this-btn" data-pairing="${p.id}">Wear this in the builder</button>
-      </div>`;
-  }).join('') || '<p class="field">No pairings match this filter.</p>';
-
-  el.querySelectorAll('[data-pairing]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const p = PAIRINGS.find(x => x.id === btn.dataset.pairing);
-      if (!p) return;
-      const slotForCategory = { top:'top', bottom:'bottom', outerwear:'outerwear', footwear:'footwear' };
-      p.items.map(byId).filter(Boolean).forEach(item => {
-        if (slotForCategory[item.category]) builderState[slotForCategory[item.category]] = item.id;
-        else if (item.category === 'accessory') {
-          if (item.shape === 'belt') builderState.belt = item.id;
-          else if (item.shape === 'watch') builderState.watch = item.id;
-          else if (item.shape.startsWith('glasses') || item.shape === 'sunglasses') builderState.glasses = item.id;
-        }
-      });
-      populateBuilderOptions(); renderFigure(); renderScores(); renderPairings();
-      document.getElementById('slot-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
-  });
+  return `<div class="score-card"><h5>Suggested Pairings</h5>${body}</div>`;
 }
 
 // ---------- Dictionary ----------
@@ -388,7 +397,7 @@ function populateBuilderOptions() {
     btn.addEventListener('click', () => {
       const slot = btn.closest('.swatch-row').dataset.slot;
       builderState[slot] = btn.dataset.id || null;
-      populateBuilderOptions(); renderFigure(); renderScores(); renderPairings();
+      populateBuilderOptions(); renderFigure(); renderScores();
     });
   });
   panel.querySelectorAll('[data-tuck]').forEach(b => b.addEventListener('click', () => { builderState.tuck = b.dataset.tuck; populateBuilderOptions(); renderFigure(); renderScores(); }));
@@ -744,7 +753,8 @@ function renderScores() {
   const panel = document.getElementById('score-panel');
   const active = SLOTS.map(s => byId(builderState[s])).filter(Boolean);
   if (!active.length) {
-    panel.innerHTML = `<div class="score-card"><h5>Score</h5><div class="score-note">Pick at least a top and bottom to see live feedback.</div></div>`;
+    panel.innerHTML = `<div class="score-card"><h5>Score</h5><div class="score-note">Pick at least a top and bottom to see live feedback.</div></div>${renderSuggestedPairingsCard()}`;
+    wireSuggestRows(panel);
     return;
   }
 
@@ -839,7 +849,18 @@ function renderScores() {
     <div class="score-card"><h5>Proportion (172cm)</h5>${proportionNotes.length ? proportionNotes.map(n=>`<div class="score-note score-warn">${n}</div>`).join('') : '<div class="score-note score-good">No warnings.</div>'}</div>
     <div class="score-card"><h5>Climate Suitability</h5><div class="score-value ${climateClass}">${climateLabel}</div>${climateHits.map(c=>`<div class="score-note">${c.note}</div>`).join('')}</div>
     ${suggestion ? `<div class="technique-suggest">${suggestion}</div>` : ''}
+    ${renderSuggestedPairingsCard()}
   `;
+  wireSuggestRows(panel);
+}
+
+function wireSuggestRows(panel) {
+  panel.querySelectorAll('.suggest-row').forEach(btn => {
+    btn.addEventListener('click', () => {
+      builderState[btn.dataset.slot] = btn.dataset.id;
+      populateBuilderOptions(); renderFigure(); renderScores();
+    });
+  });
 }
 
 // ---------- Init ----------
@@ -850,7 +871,6 @@ async function init() {
   renderPalette();
   renderGaps();
   renderRoadmap();
-  renderPairings();
   renderDictionary();
   renderFramework();
   renderArchetypes();
