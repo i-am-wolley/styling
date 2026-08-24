@@ -217,61 +217,74 @@ function renderRoadmap() {
 }
 
 // ---------- Suggested Pairings (dynamic, rule-based — lives in the score panel) ----------
-// Every top and bottom is guaranteed a real answer here: either a rule-compatible
-// partner (colour, silhouette, formality all checked — never a curated guess), or an
-// explicit "nothing suitable" when the catalogue genuinely has no good match.
-function suggestPartners(item, candidates) {
+// Every top and bottom is guaranteed a real, visible answer: a "good" list (clean
+// matches), a "caution" list (compatible but colour-track-mixing, flagged why), and
+// a "bad" list (hard rule violations, shown deliberately rather than silently hidden —
+// so it's obvious the engine is actually rejecting things, not passing everything).
+function classifyPartners(item, candidates) {
   const scored = candidates
     .filter(c => c.id !== item.id)
-    .map(c => ({ item: c, ...pairCompatibility(item, c) }))
-    .filter(x => x.compatible);
-  scored.sort((a, b) => {
-    if (!!a.soft !== !!b.soft) return a.soft ? 1 : -1; // clean matches before soft-flagged ones
-    if (a.item.owned !== b.item.owned) return a.item.owned ? -1 : 1; // owned before roadmap
-    return (b.item.versatility || 0) - (a.item.versatility || 0);
-  });
-  return scored.slice(0, 5);
+    .map(c => ({ item: c, ...pairCompatibility(item, c) }));
+  const good = scored.filter(x => x.compatible && !x.soft)
+    .sort((a, b) => (b.item.owned - a.item.owned) || ((b.item.versatility||0) - (a.item.versatility||0)));
+  const caution = scored.filter(x => x.compatible && x.soft)
+    .sort((a, b) => b.item.owned - a.item.owned);
+  const bad = scored.filter(x => !x.compatible)
+    .sort((a, b) => b.item.owned - a.item.owned);
+  return { good: good.slice(0, 5), caution: caution.slice(0, 3), bad: bad.slice(0, 4) };
 }
 
-function renderSuggestedPairingsCard() {
+function renderPairingsPanel() {
+  const el = document.getElementById('pairings-panel');
+  if (!el) return;
   const topItem = byId(builderState.top);
   const bottomItem = byId(builderState.bottom);
-  const allTops = ITEMS.filter(i => i.category === 'top' && i.formality !== 'festive');
+  const allTops = ITEMS.filter(i => i.category === 'top');
   const allBottoms = ITEMS.filter(i => i.category === 'bottom');
 
-  const rowHtml = (x, slot) => `
-    <button class="suggest-row" data-slot="${slot}" data-id="${x.item.id}" title="${x.soft || ''}">
+  const rowHtml = (x, slot, flag) => `
+    <button class="suggest-row flag-${flag}" data-slot="${slot}" data-id="${x.item.id}" ${flag === 'bad' ? 'disabled' : ''}>
       <span class="suggest-swatch" style="background:${x.item.hex}"></span>
       <span class="suggest-label">${x.item.name} — ${x.item.colorName}</span>
-      <span class="tag ${x.item.owned ? 'essential' : 'eventual'}" style="margin-left:auto;">${x.item.owned ? 'owned' : 'roadmap'}</span>
+      <span class="tag ${x.item.owned ? 'essential' : 'eventual'}">${x.item.owned ? 'owned' : 'roadmap'}</span>
+      ${flag !== 'good' ? `<span class="suggest-reason">${flag === 'bad' ? x.hard.join(' ') : x.soft}</span>` : ''}
     </button>`;
+
+  const tierBlock = (groups, slot) => {
+    const parts = [];
+    if (groups.good.length) parts.push(`<div class="pairing-tier-label good">Works</div>${groups.good.map(x => rowHtml(x, slot, 'good')).join('')}`);
+    if (groups.caution.length) parts.push(`<div class="pairing-tier-label caution">Works, with a caveat</div>${groups.caution.map(x => rowHtml(x, slot, 'caution')).join('')}`);
+    if (groups.bad.length) parts.push(`<div class="pairing-tier-label bad">Won't work</div>${groups.bad.map(x => rowHtml(x, slot, 'bad')).join('')}`);
+    if (!groups.good.length && !groups.caution.length) parts.push(`<div class="score-note score-bad">Can't be paired — nothing in the wardrobe or roadmap is compatible.</div>`);
+    return parts.join('');
+  };
 
   let body;
   if (!topItem && !bottomItem) {
-    body = `<div class="score-note">Pick a top or bottom above to see rule-checked pairings for it.</div>`;
+    body = `<div class="score-note">Pick a top or bottom to see what genuinely works with it — and what's explicitly flagged as a bad match, not just silently left out.</div>`;
   } else if (topItem && !bottomItem) {
-    const matches = suggestPartners(topItem, allBottoms);
-    body = matches.length
-      ? matches.map(x => rowHtml(x, 'bottom')).join('')
-      : `<div class="score-note score-warn">Can't be paired — nothing in the wardrobe or roadmap is silhouette- and formality-compatible with ${topItem.name}.</div>`;
+    body = tierBlock(classifyPartners(topItem, allBottoms), 'bottom');
   } else if (bottomItem && !topItem) {
-    const matches = suggestPartners(bottomItem, allTops);
-    body = matches.length
-      ? matches.map(x => rowHtml(x, 'top')).join('')
-      : `<div class="score-note score-warn">Can't be paired — nothing in the wardrobe or roadmap is silhouette- and formality-compatible with ${bottomItem.name}.</div>`;
+    body = tierBlock(classifyPartners(bottomItem, allTops), 'top');
   } else {
     const verdict = pairCompatibility(topItem, bottomItem);
-    const altBottoms = suggestPartners(topItem, allBottoms).filter(x => x.item.id !== bottomItem.id).slice(0, 3);
+    const thisPairing = verdict.compatible
+      ? `<div class="score-note score-good">This top + bottom passes every rule.</div>${verdict.soft ? `<div class="score-note score-warn">${verdict.soft}</div>` : ''}`
+      : `<div class="score-note score-bad">Won't work: ${verdict.hard.join(' ')}</div>`;
     body = `
-      <div class="score-note ${verdict.compatible ? 'score-good' : 'score-warn'}">
-        ${verdict.compatible ? 'This top + bottom pairing passes all rules.' : verdict.hard.join(' ')}
-      </div>
-      ${verdict.soft ? `<div class="score-note score-warn">${verdict.soft}</div>` : ''}
-      ${altBottoms.length ? `<div class="suggest-alt-label">Other bottoms that also work with this top:</div>${altBottoms.map(x => rowHtml(x, 'bottom')).join('')}` : ''}
+      ${thisPairing}
+      <div class="pairing-tier-label good" style="margin-top:1rem;">Other bottoms for this top</div>
+      ${tierBlock(classifyPartners(topItem, allBottoms.filter(b => b.id !== bottomItem.id)), 'bottom')}
     `;
   }
 
-  return `<div class="score-card"><h5>Suggested Pairings</h5>${body}</div>`;
+  el.innerHTML = `<div class="score-card"><h5>Suggested Pairings</h5></div><div class="score-card">${body}</div>`;
+  el.querySelectorAll('.suggest-row:not([disabled])').forEach(btn => {
+    btn.addEventListener('click', () => {
+      builderState[btn.dataset.slot] = btn.dataset.id;
+      populateBuilderOptions(); renderFigure(); renderScores();
+    });
+  });
 }
 
 // ---------- Dictionary ----------
@@ -753,8 +766,8 @@ function renderScores() {
   const panel = document.getElementById('score-panel');
   const active = SLOTS.map(s => byId(builderState[s])).filter(Boolean);
   if (!active.length) {
-    panel.innerHTML = `<div class="score-card"><h5>Score</h5><div class="score-note">Pick at least a top and bottom to see live feedback.</div></div>${renderSuggestedPairingsCard()}`;
-    wireSuggestRows(panel);
+    panel.innerHTML = `<div class="score-card"><h5>Score</h5><div class="score-note">Pick at least a top and bottom to see live feedback.</div></div>`;
+    renderPairingsPanel();
     return;
   }
 
@@ -849,18 +862,8 @@ function renderScores() {
     <div class="score-card"><h5>Proportion (172cm)</h5>${proportionNotes.length ? proportionNotes.map(n=>`<div class="score-note score-warn">${n}</div>`).join('') : '<div class="score-note score-good">No warnings.</div>'}</div>
     <div class="score-card"><h5>Climate Suitability</h5><div class="score-value ${climateClass}">${climateLabel}</div>${climateHits.map(c=>`<div class="score-note">${c.note}</div>`).join('')}</div>
     ${suggestion ? `<div class="technique-suggest">${suggestion}</div>` : ''}
-    ${renderSuggestedPairingsCard()}
   `;
-  wireSuggestRows(panel);
-}
-
-function wireSuggestRows(panel) {
-  panel.querySelectorAll('.suggest-row').forEach(btn => {
-    btn.addEventListener('click', () => {
-      builderState[btn.dataset.slot] = btn.dataset.id;
-      populateBuilderOptions(); renderFigure(); renderScores();
-    });
-  });
+  renderPairingsPanel();
 }
 
 // ---------- Init ----------
