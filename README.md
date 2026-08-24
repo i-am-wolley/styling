@@ -50,7 +50,3 @@ None of this requires touching `js/app.js` or `css/style.css` — the code just 
 ## A deliberate technical choice, worth knowing
 
 The Outfit Builder does **not** composite real product photography. The original brief specification called for a luminance-preserving recolour of real garment photos; building that required either scraping copyrighted product images (a licensing problem for something you're hosting) or you supplying photography for every piece. Instead, the figure is built from clean flat-vector garment shapes, coloured directly from each item's `hex`, layered with drop-shadows for depth and simple texture overlays for denim/knit. It's instant, free, no AI, no external requests — the same requirements the brief specified — just achieved with vector art instead of photo compositing. If you'd rather have photo-based rendering later, the `garmentLayer()` function in `js/app.js` is the one place that would need to change.
-
-## Layer B (AI render)
-
-Wired up under the "Render on Me (AI)" tab in the Outfit Builder. It needs your own reference photo and your own Gemini API key, entered in the browser — both stay in browser memory/localStorage only, never written to a file or committed. Nothing is sent anywhere except the direct browser→Google API call you trigger by clicking Render.

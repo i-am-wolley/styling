@@ -17,6 +17,16 @@ const byId = id => ITEMS.find(i => i.id === id);
 const owned = () => ITEMS.filter(i => i.owned);
 const roadmap = () => ITEMS.filter(i => !i.owned);
 
+// A patterned item (currently just the striped shirt) renders as a repeating
+// gradient instead of a flat hex wherever it shows up as a small square swatch.
+function swatchBackground(item) {
+  if (item.pattern === 'stripe' && item.patternColors && item.patternColors.length === 2) {
+    const [a, b] = item.patternColors;
+    return `repeating-linear-gradient(45deg, ${a} 0px, ${a} 4px, ${b} 4px, ${b} 8px)`;
+  }
+  return item.hex;
+}
+
 // ---------- Silhouette compatibility ----------
 // General menswear proportion principle: balance loose with fitted. Two loose/baggy
 // pieces together add volume without a counterpoint (worse at 172cm, per §0.4's
@@ -124,7 +134,7 @@ function renderWardrobe() {
     const list = owned().filter(i => cat === 'all' || i.category === cat);
     el.innerHTML = list.map(i => `
       <div class="card">
-        <div class="card-swatch" style="background:${i.hex}"></div>
+        <div class="card-swatch" style="background:${swatchBackground(i)}"></div>
         <div class="card-head">
           <div>
             <div class="card-title">${i.name}${i.favorite ? ' ★' : ''}</div>
@@ -260,6 +270,29 @@ function wearLook(look) {
       else if (i.shape.startsWith('glasses')) builderState.glasses = i.id;
     }
   });
+
+  // Curated looks don't hand-author a tuck/roll/break — derive a sensible
+  // default from the top's shape and formality so the figure doesn't just
+  // sit at whatever those were last left at.
+  const top = byId(builderState.top);
+  if (top) {
+    if (top.shape === 'shirt' || top.shape === 'overshirt') {
+      const businessTier = FORMALITY_RANK[top.formality] >= 4;
+      builderState.tuck = businessTier ? 'full' : 'french';
+      builderState.roll = businessTier ? 'italian' : 'casual';
+    } else if (top.shape === 'polo') {
+      builderState.tuck = 'french'; builderState.roll = 'down';
+    } else {
+      builderState.tuck = 'untucked'; builderState.roll = 'down';
+    }
+  }
+  const bottom = byId(builderState.bottom);
+  if (bottom && (bottom.shape === 'chino' || bottom.shape === 'trouser')) {
+    builderState.breakStyle = FORMALITY_RANK[bottom.formality] >= 4 ? 'quarter' : 'half';
+  } else {
+    builderState.breakStyle = 'half';
+  }
+
   populateBuilderOptions(); renderFigure(); renderScores();
 }
 
@@ -277,7 +310,7 @@ function renderCompleteLooks() {
   const looks = classifyLooks(pairingsFilter.occasion, pairingsFilter.ownedOnly);
 
   const rows = looks.length ? looks.map(l => {
-    const swatches = l.items.map(i => `<span class="suggest-swatch" style="background:${i.hex}" title="${i.name} — ${i.colorName}"></span>`).join('');
+    const swatches = l.items.map(i => `<span class="suggest-swatch" style="background:${swatchBackground(i)}" title="${i.name} — ${i.colorName}"></span>`).join('');
     const flag = !l.valid ? 'bad' : l.soft.length ? 'caution' : 'good';
     const badgeClass = flag === 'good' ? 'essential' : flag === 'caution' ? 'high' : 'adv';
     const badgeText = flag === 'good' ? 'passes' : flag === 'caution' ? 'caveat' : 'flagged';
@@ -309,7 +342,7 @@ function renderCompleteLooks() {
       <div class="filter-bar" style="margin-bottom:.6rem;">${chips}</div>
       <label class="toggle-label" style="margin-bottom:0;"><input type="checkbox" id="looks-owned-only" ${pairingsFilter.ownedOnly ? 'checked' : ''}> Only show looks I can wear right now</label>
     </div>
-    ${rows}
+    <div class="looks-columns">${rows}</div>
   `;
   el.querySelectorAll('.occasion-chip').forEach(chip => {
     chip.addEventListener('click', () => { pairingsFilter.occasion = chip.dataset.occasion; renderCompleteLooks(); });
@@ -348,7 +381,18 @@ function renderSuggestedPairings() {
   const el = document.getElementById('pairings-panel');
   if (!el) return;
 
-  const groups = SUGGEST_CATEGORIES.map(cat => {
+  // Only suggest for slots that are still empty — once you've picked a top,
+  // there's no point re-showing tops here. And only show items that actually
+  // pass (compatible, with or without a caveat) — a hard conflict has no
+  // business appearing in a "what could I add" list.
+  const open = SUGGEST_CATEGORIES.filter(cat => !builderState[cat.key]);
+
+  if (!open.length) {
+    el.innerHTML = `<div class="score-card"><h5>Suggested Pairings</h5></div><div class="score-card"><div class="score-note">Every slot here is filled — clear one to see suggestions for it.</div></div>`;
+    return;
+  }
+
+  const groups = open.map(cat => {
     const against = currentlySelectedItems(cat.key);
     const squares = ITEMS.filter(cat.match).map(item => {
       const hard = [], soft = [];
@@ -357,13 +401,12 @@ function renderSuggestedPairings() {
         hard.push(...r.hard);
         if (r.soft) soft.push(r.soft);
       });
-      const flagClass = hard.length ? 'conflict' : soft.length ? 'caution' : '';
-      const selected = builderState[cat.key] === item.id;
-      const reason = hard.length ? hard.join(' ') : soft.length ? soft.join(' ') : '';
+      if (hard.length) return '';
+      const reason = soft.length ? soft.join(' ') : '';
       const title = `${item.brand} ${item.name} — ${item.colorName}${reason ? '\n⚠ ' + reason : ''}`;
-      return `<button class="swatch-btn ${flagClass} ${selected ? 'selected' : ''}" data-slot="${cat.key}" data-id="${item.id}" style="background:${item.hex}" title="${title}"></button>`;
+      return `<button class="swatch-btn ${soft.length ? 'caution' : ''}" data-slot="${cat.key}" data-id="${item.id}" style="background:${swatchBackground(item)}" title="${title}"></button>`;
     }).join('');
-    return `<div class="slot-group"><h4>${cat.label}</h4><div class="swatch-row">${squares}</div></div>`;
+    return `<div class="slot-group"><h4>${cat.label}</h4><div class="swatch-row">${squares || '<div class="score-note score-bad">Nothing compatible yet.</div>'}</div></div>`;
   }).join('');
 
   el.innerHTML = `
@@ -462,34 +505,37 @@ function currentlySelectedItems(excludeSlot) {
 
 function populateBuilderOptions() {
   const panel = document.getElementById('slot-panel');
+  const techPanel = document.getElementById('technique-panel');
   const accCats = { belt:'belt', watch:'watch', glasses:'glasses' };
   let html = '';
   SLOTS.forEach(slot => {
     const cat = slot === 'outerwear' ? 'outerwear' : slot === 'footwear' ? 'footwear' : slot;
     const options = ITEMS.filter(i => i.category === cat);
     const against = currentlySelectedItems(slot);
-    html += `<div class="slot-group"><h4>${slot}</h4><div class="slot-help">${SLOT_HELP[slot]}</div><div class="swatch-row" data-slot="${slot}">
+    html += `<div class="slot-group"><h4 title="${SLOT_HELP[slot]}">${slot}</h4><div class="swatch-row" data-slot="${slot}">
       <button class="swatch-btn none ${!builderState[slot] ? 'selected' : ''}" data-id="" title="none">–</button>
       ${options.map(i => {
         const conflicts = hardConflicts(i, against);
         const title = `${i.brand} ${i.name} — ${i.colorName}${conflicts.length ? '\n⚠ ' + conflicts.join('\n⚠ ') : ''}`;
-        return `<button class="swatch-btn ${builderState[slot]===i.id?'selected':''} ${conflicts.length?'conflict':''}" data-id="${i.id}" style="background:${i.hex}" title="${title}"></button>`;
+        return `<button class="swatch-btn ${builderState[slot]===i.id?'selected':''} ${conflicts.length?'conflict':''}" data-id="${i.id}" style="background:${swatchBackground(i)}" title="${title}"></button>`;
       }).join('')}
     </div></div>`;
   });
   Object.entries(accCats).forEach(([slot, shapeCat]) => {
     const options = ITEMS.filter(i => i.category === 'accessory' && i.shape.startsWith(shapeCat));
     const against = currentlySelectedItems(slot);
-    html += `<div class="slot-group"><h4>${slot}</h4><div class="slot-help">${SLOT_HELP[slot]}</div><div class="swatch-row" data-slot="${slot}">
+    html += `<div class="slot-group"><h4 title="${SLOT_HELP[slot]}">${slot}</h4><div class="swatch-row" data-slot="${slot}">
       <button class="swatch-btn none ${!builderState[slot] ? 'selected' : ''}" data-id="" title="none">–</button>
       ${options.map(i => {
         const conflicts = hardConflicts(i, against);
         const title = `${i.name}${conflicts.length ? '\n⚠ ' + conflicts.join('\n⚠ ') : ''}`;
-        return `<button class="swatch-btn ${builderState[slot]===i.id?'selected':''} ${conflicts.length?'conflict':''}" data-id="${i.id}" style="background:${i.hex}" title="${title}"></button>`;
+        return `<button class="swatch-btn ${builderState[slot]===i.id?'selected':''} ${conflicts.length?'conflict':''}" data-id="${i.id}" style="background:${swatchBackground(i)}" title="${title}"></button>`;
       }).join('')}
     </div></div>`;
   });
-  html += `
+  panel.innerHTML = html;
+
+  const techHtml = `
     <div class="slot-group"><h4>Tuck</h4><div class="swatch-row">
       ${['untucked','full','french'].map(t => `<button class="filter-chip ${builderState.tuck===t?'active':''}" data-tuck="${t}" style="font-size:.7rem;">${t}</button>`).join('')}
     </div></div>
@@ -500,7 +546,7 @@ function populateBuilderOptions() {
       ${['no','quarter','half','full'].map(b => `<button class="filter-chip ${builderState.breakStyle===b?'active':''}" data-break="${b}" style="font-size:.7rem;">${b}</button>`).join('')}
     </div></div>
   `;
-  panel.innerHTML = html;
+  techPanel.innerHTML = techHtml;
 
   panel.querySelectorAll('.swatch-row[data-slot] .swatch-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -509,9 +555,9 @@ function populateBuilderOptions() {
       populateBuilderOptions(); renderFigure(); renderScores();
     });
   });
-  panel.querySelectorAll('[data-tuck]').forEach(b => b.addEventListener('click', () => { builderState.tuck = b.dataset.tuck; populateBuilderOptions(); renderFigure(); renderScores(); }));
-  panel.querySelectorAll('[data-roll]').forEach(b => b.addEventListener('click', () => { builderState.roll = b.dataset.roll; populateBuilderOptions(); renderFigure(); renderScores(); }));
-  panel.querySelectorAll('[data-break]').forEach(b => b.addEventListener('click', () => { builderState.breakStyle = b.dataset.break; populateBuilderOptions(); renderFigure(); renderScores(); }));
+  techPanel.querySelectorAll('[data-tuck]').forEach(b => b.addEventListener('click', () => { builderState.tuck = b.dataset.tuck; populateBuilderOptions(); renderFigure(); renderScores(); }));
+  techPanel.querySelectorAll('[data-roll]').forEach(b => b.addEventListener('click', () => { builderState.roll = b.dataset.roll; populateBuilderOptions(); renderFigure(); renderScores(); }));
+  techPanel.querySelectorAll('[data-break]').forEach(b => b.addEventListener('click', () => { builderState.breakStyle = b.dataset.break; populateBuilderOptions(); renderFigure(); renderScores(); }));
 }
 
 function texturePattern(fabric, hex) {
@@ -639,11 +685,6 @@ function garmentLayer(item) {
 }
 
 function renderFigure() {
-  if (typeof aiState !== 'undefined' && aiState.mode === 'ai') {
-    const s = document.getElementById('ai-status');
-    if (s && aiState.lastImage) { aiState.status = 'Outfit changed — click Render to update the AI image.'; aiState.error = false; renderAIPanel(); }
-    return;
-  }
   const stage = document.getElementById('figure-stage');
   const bottom = byId(builderState.bottom);
   const footwear = byId(builderState.footwear);
@@ -675,130 +716,6 @@ function renderFigure() {
     ${garmentLayer(watch)}
     ${garmentLayer(glasses)}
   </svg>`;
-}
-
-// ---------- Layer B: AI render ("on me") ----------
-// Nothing here ever writes your photo or API key to a file — both live only
-// in this browser's memory/localStorage, and are sent only to Google's Gemini
-// API directly from your browser when you click Render.
-const aiState = {
-  mode: 'vector',
-  photoDataUrl: localStorage.getItem('wa_photo') || null,
-  apiKey: localStorage.getItem('wa_apikey') || '',
-  model: localStorage.getItem('wa_model') || 'gemini-2.5-flash-image',
-  lastImage: null,
-  status: '',
-  error: false,
-};
-
-function setupStageTabs() {
-  document.querySelectorAll('.stage-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      aiState.mode = tab.dataset.mode;
-      document.querySelectorAll('.stage-tab').forEach(t => t.classList.toggle('active', t === tab));
-      document.getElementById('figure-stage').style.display = aiState.mode === 'vector' ? 'flex' : 'none';
-      document.getElementById('ai-panel').classList.toggle('active', aiState.mode === 'ai');
-      if (aiState.mode === 'ai') renderAIPanel();
-    });
-  });
-}
-
-function outfitCacheKey() {
-  const ids = SLOTS.concat(ACCESSORY_SLOTS).map(s => builderState[s] || '-').join('|');
-  return `wa_render_${ids}_${builderState.tuck}_${builderState.roll}_${builderState.breakStyle}`;
-}
-
-function outfitPromptText() {
-  const parts = [...SLOTS, ...ACCESSORY_SLOTS].map(s => byId(builderState[s])).filter(Boolean);
-  const desc = parts.map(i => `${i.colorName} ${i.brand} ${i.name} (${i.fabric})`).join(', ');
-  return `Photorealistic full-body photo of the same person shown in the reference photo, keeping their face and identity accurate and unchanged. They are wearing: ${desc || 'their current clothing'}. Tuck style: ${builderState.tuck}. Trouser break: ${builderState.breakStyle}. Natural daylight, neutral studio or office background, business-casual context, standing pose, realistic fabric drape and fit.`;
-}
-
-function renderAIPanel() {
-  const el = document.getElementById('ai-panel');
-  el.innerHTML = `
-    <div class="ai-field">
-      <label>Your reference photo</label>
-      <input type="file" id="ai-photo-input" accept="image/*">
-      ${aiState.photoDataUrl ? `<img class="ai-photo-preview" src="${aiState.photoDataUrl}">` : ''}
-      <label class="ai-checkbox"><input type="checkbox" id="ai-remember-photo" ${localStorage.getItem('wa_photo') ? 'checked' : ''}> Remember this photo in my browser (localStorage) — never committed to the repo</label>
-    </div>
-    <div class="ai-field">
-      <label>Gemini API key</label>
-      <input type="password" id="ai-key-input" placeholder="Paste your own key — never hardcoded, never saved to any file" value="${aiState.apiKey}">
-      <label class="ai-checkbox"><input type="checkbox" id="ai-remember-key" ${localStorage.getItem('wa_apikey') ? 'checked' : ''}> Remember key in this browser</label>
-      <div class="ai-hint">Get a key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>.</div>
-    </div>
-    <div class="ai-field">
-      <label>Model</label>
-      <input type="text" id="ai-model-input" value="${aiState.model}">
-      <div class="ai-hint">Defaults to a current image-capable Gemini model. If rendering fails with a model-not-found error, check Google AI Studio for the current model name and update this field.</div>
-    </div>
-    <button class="ai-render-btn" id="ai-render-btn">Render this outfit on me</button>
-    <div class="ai-status ${aiState.error ? 'error' : ''}" id="ai-status">${aiState.status}</div>
-    <div class="ai-privacy">Your photo and key live only in this browser (memory, or localStorage if you check "remember"). They're sent only to Google's API when you click Render — never written to any file, never part of what gets committed to git.</div>
-  `;
-  document.getElementById('ai-photo-input').addEventListener('change', async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => { aiState.photoDataUrl = reader.result; renderAIPanel(); };
-    reader.readAsDataURL(file);
-  });
-  document.getElementById('ai-render-btn').addEventListener('click', runAIRender);
-}
-
-async function runAIRender() {
-  const keyInput = document.getElementById('ai-key-input').value.trim();
-  const modelInput = document.getElementById('ai-model-input').value.trim();
-  const rememberPhoto = document.getElementById('ai-remember-photo').checked;
-  const rememberKey = document.getElementById('ai-remember-key').checked;
-  aiState.apiKey = keyInput; aiState.model = modelInput || aiState.model;
-
-  if (rememberPhoto && aiState.photoDataUrl) { try { localStorage.setItem('wa_photo', aiState.photoDataUrl); } catch(e) {} }
-  else localStorage.removeItem('wa_photo');
-  if (rememberKey && aiState.apiKey) localStorage.setItem('wa_apikey', aiState.apiKey);
-  else localStorage.removeItem('wa_apikey');
-  if (modelInput) localStorage.setItem('wa_model', modelInput);
-
-  if (!aiState.photoDataUrl) { aiState.status = 'Upload a reference photo first.'; aiState.error = true; renderAIPanel(); return; }
-  if (!aiState.apiKey) { aiState.status = 'Enter your Gemini API key first — the Vector Preview tab works with no key at all.'; aiState.error = true; renderAIPanel(); return; }
-
-  const cacheKey = outfitCacheKey();
-  const cached = localStorage.getItem(cacheKey);
-  if (cached) { aiState.lastImage = cached; aiState.status = 'Loaded from cache — this exact outfit was already rendered.'; aiState.error = false; showAIImage(cached); renderAIPanel(); return; }
-
-  aiState.status = 'Rendering… this calls Google\'s Gemini API directly from your browser and can take 10-20 seconds.'; aiState.error = false; renderAIPanel();
-
-  try {
-    const [, mime, b64] = aiState.photoDataUrl.match(/^data:(.+);base64,(.+)$/);
-    const body = {
-      contents: [{ parts: [
-        { text: outfitPromptText() },
-        { inline_data: { mime_type: mime, data: b64 } }
-      ]}]
-    };
-    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${aiState.model}:generateContent?key=${aiState.apiKey}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
-    });
-    if (!resp.ok) { const t = await resp.text(); throw new Error(`API error ${resp.status}: ${t.slice(0,200)}`); }
-    const data = await resp.json();
-    const imgPart = data.candidates?.[0]?.content?.parts?.find(p => p.inline_data || p.inlineData);
-    const inline = imgPart?.inline_data || imgPart?.inlineData;
-    if (!inline) throw new Error('No image returned — the model may not support image output, or the prompt was refused.');
-    const dataUrl = `data:${inline.mime_type || inline.mimeType};base64,${inline.data}`;
-    try { localStorage.setItem(cacheKey, dataUrl); } catch (e) { /* storage full — render still shows, just won't cache */ }
-    aiState.lastImage = dataUrl; aiState.status = 'Rendered.'; aiState.error = false;
-    showAIImage(dataUrl);
-  } catch (err) {
-    aiState.status = `Couldn't render: ${err.message}. Falling back to the Vector Preview.`; aiState.error = true;
-  }
-  renderAIPanel();
-}
-
-function showAIImage(dataUrl) {
-  const stage = document.getElementById('figure-stage');
-  stage.innerHTML = `<img src="${dataUrl}" alt="AI render of the selected outfit">`;
 }
 
 // ---------- Scoring engine ----------
@@ -974,7 +891,6 @@ async function init() {
   renderFramework();
   renderArchetypes();
   populateBuilderOptions();
-  setupStageTabs();
   renderFigure();
   renderScores();
   const initial = location.hash.replace('#','') || 'wardrobe';
