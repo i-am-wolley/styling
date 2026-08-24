@@ -307,22 +307,23 @@ function renderCompleteLooks() {
   if (!el) return;
   const occasions = ['all', 'work', 'family', 'travel'];
   const chips = occasions.map(o => `<button class="filter-chip occasion-chip ${pairingsFilter.occasion === o ? 'active' : ''}" data-occasion="${o}">${o}</button>`).join('');
-  const looks = classifyLooks(pairingsFilter.occasion, pairingsFilter.ownedOnly);
+  // Flagged (rule-breaking) looks are dropped entirely rather than shown disabled —
+  // same "don't show what shouldn't be paired" rule Suggested Pairings follows.
+  const looks = classifyLooks(pairingsFilter.occasion, pairingsFilter.ownedOnly).filter(l => l.valid);
 
   const rows = looks.length ? looks.map(l => {
     const swatches = l.items.map(i => `<span class="suggest-swatch" style="background:${swatchBackground(i)}" title="${i.name} — ${i.colorName}"></span>`).join('');
-    const flag = !l.valid ? 'bad' : l.soft.length ? 'caution' : 'good';
-    const badgeClass = flag === 'good' ? 'essential' : flag === 'caution' ? 'high' : 'adv';
-    const badgeText = flag === 'good' ? 'passes' : flag === 'caution' ? 'caveat' : 'flagged';
+    const flag = l.soft.length ? 'caution' : 'good';
+    const badgeClass = flag === 'good' ? 'essential' : 'high';
+    const badgeText = flag === 'good' ? 'passes' : 'caveat';
     const expanded = expandedLookId === l.pairing.id;
     const missing = l.items.filter(i => !i.owned).map(i => i.name).join(', ');
     const detail = expanded ? `
       <div class="look-detail">
         <div class="pairing-why">${l.pairing.why}</div>
-        ${!l.valid ? `<div class="score-note score-bad">No longer recommended: ${l.hard.join(' ')}</div>` : ''}
         ${l.soft.length ? `<div class="score-note score-warn">${l.soft.join(' ')}</div>` : ''}
         ${missing ? `<div class="pairing-missing">Needs from Roadmap: ${missing}</div>` : ''}
-        <button class="wear-this-btn" data-look="${l.pairing.id}" ${l.valid ? '' : 'disabled'}>${l.valid ? 'Wear this' : "Can't wear — rules changed"}</button>
+        <button class="wear-this-btn" data-look="${l.pairing.id}">Wear this</button>
       </div>` : '';
     return `
       <div class="look-item">
@@ -567,26 +568,51 @@ function texturePattern(fabric, hex) {
   return '';
 }
 
+// A striped item fills with its own SVG <pattern> (defined in renderFigure's <defs>)
+// instead of a flat hex, so the vector figure actually shows the stripe, not just
+// the small picker squares.
+function svgFill(item) {
+  return item.pattern === 'stripe' ? `url(#stripe-${item.id})` : item.hex;
+}
+function stripeDefs(items) {
+  return items.filter(i => i && i.pattern === 'stripe' && i.patternColors && i.patternColors.length === 2).map(i => `
+    <pattern id="stripe-${i.id}" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="8" height="8" fill="${i.patternColors[1]}"/>
+      <rect width="4" height="8" fill="${i.patternColors[0]}"/>
+    </pattern>`).join('');
+}
+
 function garmentLayer(item) {
   if (!item) return '';
-  const hex = item.hex, shape = item.shape, fab = item.fabric;
+  const fillColor = svgFill(item), shape = item.shape, fab = item.fabric;
   const g = (inner, extra='') => `<g filter="url(#dshadow)" ${extra}>${inner}</g>`;
 
   switch (shape) {
     case 'tee': {
       const sleeveEnd = builderState.roll === 'high' ? 78 : 100;
       return g(`
-        <path d="M62,58 L138,58 L148,${sleeveEnd} L126,94 L126,180 L74,180 L74,94 L52,${sleeveEnd} Z" fill="${hex}" stroke="#00000022"/>
+        <path d="M62,58 L138,58 L148,${sleeveEnd} L126,94 L126,180 L74,180 L74,94 L52,${sleeveEnd} Z" fill="${fillColor}" stroke="#00000022"/>
         ${texturePattern(fab)}
       `);
     }
-    case 'shirt': case 'overshirt': case 'knit': {
+    case 'shirt': case 'knit': {
       const sleeveEnd = builderState.roll === 'high' ? 78 : builderState.roll === 'italian' ? 118 : builderState.roll === 'casual' ? 140 : 186;
       const collar = shape !== 'knit' ? `<path d="M90,54 L100,70 L110,54" fill="none" stroke="#00000030" stroke-width="1.4"/>` : '';
       const hemY = builderState.tuck === 'untucked' ? 198 : 182;
       return g(`
-        <path d="M60,56 L140,56 L164,${sleeveEnd} L148,${sleeveEnd-6} L132,92 L132,${hemY} L68,${hemY} L68,92 L52,${sleeveEnd-6} L36,${sleeveEnd} Z" fill="${hex}" stroke="#00000022"/>
+        <path d="M60,56 L140,56 L164,${sleeveEnd} L148,${sleeveEnd-6} L132,92 L132,${hemY} L68,${hemY} L68,92 L52,${sleeveEnd-6} L36,${sleeveEnd} Z" fill="${fillColor}" stroke="#00000022"/>
         ${collar}
+        ${texturePattern(fab)}
+      `);
+    }
+    case 'overshirt': {
+      // Drawn open — two side panels with a gap down the front — instead of a
+      // full closed torso shape, so whatever top is underneath still shows.
+      const sleeveEnd = builderState.roll === 'high' ? 78 : builderState.roll === 'italian' ? 118 : builderState.roll === 'casual' ? 140 : 186;
+      const hemY = builderState.tuck === 'untucked' ? 198 : 182;
+      return g(`
+        <path d="M60,56 L92,56 L88,${hemY} L68,${hemY} L68,92 L52,${sleeveEnd-6} L36,${sleeveEnd} Z" fill="${fillColor}" stroke="#00000022"/>
+        <path d="M140,56 L108,56 L112,${hemY} L132,${hemY} L132,92 L148,${sleeveEnd-6} L164,${sleeveEnd} Z" fill="${fillColor}" stroke="#00000022"/>
         ${texturePattern(fab)}
       `);
     }
@@ -594,7 +620,7 @@ function garmentLayer(item) {
       const sleeveEnd = builderState.roll === 'high' ? 78 : 100;
       const hemY = builderState.tuck === 'untucked' ? 198 : 182;
       return g(`
-        <path d="M62,58 L138,58 L148,${sleeveEnd} L128,94 L128,${hemY} L72,${hemY} L72,94 L52,${sleeveEnd} Z" fill="${hex}" stroke="#00000022"/>
+        <path d="M62,58 L138,58 L148,${sleeveEnd} L128,94 L128,${hemY} L72,${hemY} L72,94 L52,${sleeveEnd} Z" fill="${fillColor}" stroke="#00000022"/>
         <line x1="98" y1="58" x2="98" y2="76" stroke="#00000030" stroke-width="1.2"/>
         <circle cx="98" cy="66" r="1.3" fill="#00000040"/><circle cx="98" cy="72" r="1.3" fill="#00000040"/>
         ${texturePattern(fab)}
@@ -602,33 +628,33 @@ function garmentLayer(item) {
     }
     case 'blazer': {
       return g(`
-        <path d="M64,56 L96,64 L100,80 L104,64 L136,56 L158,100 L140,108 L132,90 L132,192 L68,192 L68,90 L60,108 L42,100 Z" fill="${hex}" stroke="#00000030"/>
+        <path d="M64,56 L96,64 L100,80 L104,64 L136,56 L158,100 L140,108 L132,90 L132,192 L68,192 L68,90 L60,108 L42,100 Z" fill="${fillColor}" stroke="#00000030"/>
         <path d="M96,64 L88,110 L100,80 Z" fill="#00000018"/>
         <path d="M104,64 L112,110 L100,80 Z" fill="#00000018"/>
       `, 'opacity="0.98"');
     }
     case 'kurta': {
       return g(`
-        <path d="M70,58 L130,58 L150,100 L134,108 L124,90 L124,230 L76,230 L76,90 L66,108 L50,100 Z" fill="${hex}" stroke="#00000022"/>
+        <path d="M70,58 L130,58 L150,100 L134,108 L124,90 L124,230 L76,230 L76,90 L66,108 L50,100 Z" fill="${fillColor}" stroke="#00000022"/>
         <line x1="94" y1="58" x2="94" y2="80" stroke="#00000030" stroke-width="1"/>
         <line x1="106" y1="58" x2="106" y2="80" stroke="#00000030" stroke-width="1"/>
       `);
     }
     case 'shell': {
-      return g(`<path d="M66,56 L134,56 L154,98 L138,106 L130,88 L130,190 L70,190 L70,88 L62,106 L46,98 Z" fill="${hex}" stroke="#00000030"/>`);
+      return g(`<path d="M66,56 L134,56 L154,98 L138,106 L130,88 L130,190 L70,190 L70,88 L62,106 L46,98 Z" fill="${fillColor}" stroke="#00000030"/>`);
     }
     case 'chino': case 'trouser': {
       const shoeY = builderState.breakStyle === 'no' ? 396 : builderState.breakStyle === 'quarter' ? 400 : builderState.breakStyle === 'half' ? 404 : 410;
       return g(`
-        <path d="M74,186 L98,186 L96,${shoeY} L78,${shoeY} Z" fill="${hex}" stroke="#00000022"/>
-        <path d="M102,186 L126,186 L122,${shoeY} L104,${shoeY} Z" fill="${hex}" stroke="#00000022"/>
+        <path d="M74,186 L98,186 L96,${shoeY} L78,${shoeY} Z" fill="${fillColor}" stroke="#00000022"/>
+        <path d="M102,186 L126,186 L122,${shoeY} L104,${shoeY} Z" fill="${fillColor}" stroke="#00000022"/>
         ${texturePattern(fab)}
       `);
     }
     case 'jogger': {
       return g(`
-        <path d="M74,186 L98,186 L92,370 L84,370 L80,392 L72,392 L78,370 Z" fill="${hex}" stroke="#00000022"/>
-        <path d="M102,186 L126,186 L120,392 L112,392 L108,370 L100,370 Z" fill="${hex}" stroke="#00000022"/>
+        <path d="M74,186 L98,186 L92,370 L84,370 L80,392 L72,392 L78,370 Z" fill="${fillColor}" stroke="#00000022"/>
+        <path d="M102,186 L126,186 L120,392 L112,392 L108,370 L100,370 Z" fill="${fillColor}" stroke="#00000022"/>
         <rect x="72" y="386" width="12" height="8" fill="#00000025"/>
         <rect x="108" y="386" width="12" height="8" fill="#00000025"/>
         <line x1="90" y1="190" x2="94" y2="198" stroke="#00000035" stroke-width="1"/>
@@ -638,8 +664,8 @@ function garmentLayer(item) {
     case 'jeans': {
       const shoeY = 404;
       return g(`
-        <path d="M74,186 L98,186 L96,${shoeY} L78,${shoeY} Z" fill="${hex}" stroke="#00000022"/>
-        <path d="M102,186 L126,186 L122,${shoeY} L104,${shoeY} Z" fill="${hex}" stroke="#00000022"/>
+        <path d="M74,186 L98,186 L96,${shoeY} L78,${shoeY} Z" fill="${fillColor}" stroke="#00000022"/>
+        <path d="M102,186 L126,186 L122,${shoeY} L104,${shoeY} Z" fill="${fillColor}" stroke="#00000022"/>
         <line x1="80" y1="190" x2="78" y2="${shoeY-4}" stroke="#ffffff30" stroke-width="1"/>
         <line x1="120" y1="190" x2="122" y2="${shoeY-4}" stroke="#ffffff30" stroke-width="1"/>
       `);
@@ -647,38 +673,38 @@ function garmentLayer(item) {
     case 'cargo': {
       const shoeY = 404;
       return g(`
-        <path d="M74,186 L98,186 L96,${shoeY} L78,${shoeY} Z" fill="${hex}" stroke="#00000022"/>
-        <path d="M102,186 L126,186 L122,${shoeY} L104,${shoeY} Z" fill="${hex}" stroke="#00000022"/>
+        <path d="M74,186 L98,186 L96,${shoeY} L78,${shoeY} Z" fill="${fillColor}" stroke="#00000022"/>
+        <path d="M102,186 L126,186 L122,${shoeY} L104,${shoeY} Z" fill="${fillColor}" stroke="#00000022"/>
         <rect x="62" y="240" width="14" height="20" fill="#00000020" stroke="#00000030"/>
         <rect x="124" y="240" width="14" height="20" fill="#00000020" stroke="#00000030"/>
       `);
     }
     case 'sneaker': case 'derby': case 'loafer': {
       return g(`
-        <path d="M64,${404} L100,${404} L104,418 L58,418 Z" fill="${hex}" stroke="#00000030"/>
-        <path d="M100,${404} L136,${404} L142,418 L96,418 Z" fill="${hex}" stroke="#00000030"/>
+        <path d="M64,${404} L100,${404} L104,418 L58,418 Z" fill="${fillColor}" stroke="#00000030"/>
+        <path d="M100,${404} L136,${404} L142,418 L96,418 Z" fill="${fillColor}" stroke="#00000030"/>
       `);
     }
     case 'boot': {
       return g(`
-        <path d="M64,392 L100,392 L104,418 L58,418 Z" fill="${hex}" stroke="#00000030"/>
-        <path d="M100,392 L136,392 L142,418 L96,418 Z" fill="${hex}" stroke="#00000030"/>
+        <path d="M64,392 L100,392 L104,418 L58,418 Z" fill="${fillColor}" stroke="#00000030"/>
+        <path d="M100,392 L136,392 L142,418 L96,418 Z" fill="${fillColor}" stroke="#00000030"/>
       `);
     }
     case 'belt': {
-      return g(`<rect x="72" y="183" width="56" height="7" fill="${hex}" stroke="#00000030"/>`);
+      return g(`<rect x="72" y="183" width="56" height="7" fill="${fillColor}" stroke="#00000030"/>`);
     }
     case 'watch': {
-      return g(`<circle cx="152" cy="188" r="4.5" fill="${hex}" stroke="#00000040"/>`);
+      return g(`<circle cx="152" cy="188" r="4.5" fill="${fillColor}" stroke="#00000040"/>`);
     }
     case 'glasses': {
-      return g(`<g fill="none" stroke="${hex}" stroke-width="2.4"><circle cx="90" cy="26" r="8"/><circle cx="110" cy="26" r="8"/><line x1="98" y1="26" x2="102" y2="26"/></g>`);
+      return g(`<g fill="none" stroke="${fillColor}" stroke-width="2.4"><circle cx="90" cy="26" r="8"/><circle cx="110" cy="26" r="8"/><line x1="98" y1="26" x2="102" y2="26"/></g>`);
     }
     case 'glasses-angular': {
-      return g(`<g fill="none" stroke="${hex}" stroke-width="2.4"><rect x="82" y="20" width="16" height="11" rx="1.5"/><rect x="102" y="20" width="16" height="11" rx="1.5"/><line x1="98" y1="25" x2="102" y2="25"/></g>`);
+      return g(`<g fill="none" stroke="${fillColor}" stroke-width="2.4"><rect x="82" y="20" width="16" height="11" rx="1.5"/><rect x="102" y="20" width="16" height="11" rx="1.5"/><line x1="98" y1="25" x2="102" y2="25"/></g>`);
     }
     case 'sunglasses': {
-      return g(`<g fill="${hex}" opacity="0.9"><circle cx="90" cy="26" r="8"/><circle cx="110" cy="26" r="8"/></g>`);
+      return g(`<g fill="${fillColor}" opacity="0.9"><circle cx="90" cy="26" r="8"/><circle cx="110" cy="26" r="8"/></g>`);
     }
     default: return '';
   }
@@ -700,6 +726,7 @@ function renderFigure() {
       <filter id="dshadow" x="-30%" y="-30%" width="160%" height="160%">
         <feDropShadow dx="0" dy="3" stdDeviation="3" flood-opacity="0.22"/>
       </filter>
+      ${stripeDefs([bottom, footwear, top, outerwear, belt, watch, glasses])}
     </defs>
     <g fill="none" stroke="currentColor" stroke-width="1" opacity="0.28">
       <circle cx="100" cy="28" r="20"/>
@@ -880,6 +907,13 @@ function renderScores() {
 }
 
 // ---------- Init ----------
+function resetBuilder() {
+  [...SLOTS, ...ACCESSORY_SLOTS].forEach(s => builderState[s] = null);
+  builderState.tuck = 'untucked'; builderState.roll = 'down'; builderState.breakStyle = 'half';
+  expandedLookId = null;
+  populateBuilderOptions(); renderFigure(); renderScores();
+}
+
 async function init() {
   await loadData();
   setupNav();
@@ -893,6 +927,7 @@ async function init() {
   populateBuilderOptions();
   renderFigure();
   renderScores();
+  document.getElementById('reset-builder').addEventListener('click', resetBuilder);
   const initial = location.hash.replace('#','') || 'wardrobe';
   showView(initial);
 }
