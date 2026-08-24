@@ -22,7 +22,7 @@ const roadmap = () => ITEMS.filter(i => !i.owned);
 function swatchBackground(item) {
   if (item.pattern === 'stripe' && item.patternColors && item.patternColors.length === 2) {
     const [a, b] = item.patternColors;
-    return `repeating-linear-gradient(45deg, ${a} 0px, ${a} 4px, ${b} 4px, ${b} 8px)`;
+    return `repeating-linear-gradient(90deg, ${a} 0px, ${a} 4px, ${b} 4px, ${b} 8px)`;
   }
   return item.hex;
 }
@@ -576,7 +576,7 @@ function svgFill(item) {
 }
 function stripeDefs(items) {
   return items.filter(i => i && i.pattern === 'stripe' && i.patternColors && i.patternColors.length === 2).map(i => `
-    <pattern id="stripe-${i.id}" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+    <pattern id="stripe-${i.id}" width="8" height="8" patternUnits="userSpaceOnUse">
       <rect width="8" height="8" fill="${i.patternColors[1]}"/>
       <rect width="4" height="8" fill="${i.patternColors[0]}"/>
     </pattern>`).join('');
