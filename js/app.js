@@ -1,13 +1,14 @@
 // ---------- Data ----------
-let ITEMS = [], PALETTE = null, DICTIONARY = [], ARCHETYPES = null, FRAMEWORK = null;
+let ITEMS = [], PALETTE = null, DICTIONARY = [], ARCHETYPES = null, FRAMEWORK = null, PAIRINGS = [];
 
 async function loadData() {
-  const [items, palette, dictionary] = await Promise.all([
+  const [items, palette, dictionary, pairings] = await Promise.all([
     fetch('data/items.json').then(r => r.json()),
     fetch('data/palette.json').then(r => r.json()),
     fetch('data/dictionary.json').then(r => r.json()),
+    fetch('data/pairings.json').then(r => r.json()),
   ]);
-  ITEMS = items; PALETTE = palette; DICTIONARY = dictionary;
+  ITEMS = items; PALETTE = palette; DICTIONARY = dictionary; PAIRINGS = pairings;
   try { ARCHETYPES = await fetch('data/archetypes.json').then(r => r.json()); } catch (e) { ARCHETYPES = null; }
   try { FRAMEWORK = await fetch('data/framework.json').then(r => r.json()); } catch (e) { FRAMEWORK = null; }
 }
@@ -53,7 +54,11 @@ function formalityGapConflict(a, b) {
   return null;
 }
 // Festive wear (kurta etc.) is its own register per §0.2 — not mixed with Western basics.
+// Only checked between torso/leg layers: footwear and accessories are formality-neutral
+// (boots or loafers under a kurta is normal Indo-western styling, not a register clash).
 function festiveConflict(a, b) {
+  const registerCats = ['top', 'bottom', 'outerwear'];
+  if (!registerCats.includes(a.category) || !registerCats.includes(b.category)) return null;
   if ((a.formality === 'festive') !== (b.formality === 'festive')) {
     return `${a.name} is festive wear — a separate formality register, not mixed with Western business-casual basics.`;
   }
@@ -234,6 +239,85 @@ function classifyPartners(item, candidates) {
   return { good: good.slice(0, 5), caution: caution.slice(0, 3), bad: bad.slice(0, 4) };
 }
 
+// ---------- Complete Looks (curated, occasion-tagged — validated live against the same rules) ----------
+// pairings.json holds the original hand-picked outfits with their occasion tags and written
+// "why". They're never trusted blindly: every pair inside a look is re-checked against
+// pairCompatibility() at render time, so if item data changes later and breaks a curated
+// combo, it gets visibly flagged here instead of silently staying wrong.
+const pairingsFilter = { occasion: 'all', ownedOnly: false };
+
+function classifyLooks(occasion, ownedOnly) {
+  return (PAIRINGS || [])
+    .filter(p => occasion === 'all' || p.occasions.includes(occasion))
+    .map(p => {
+      const items = p.items.map(byId).filter(Boolean);
+      const hard = [], soft = [];
+      for (let a = 0; a < items.length; a++) {
+        for (let b = a + 1; b < items.length; b++) {
+          const r = pairCompatibility(items[a], items[b]);
+          hard.push(...r.hard);
+          if (r.soft) soft.push(r.soft);
+        }
+      }
+      return { pairing: p, items, hard, soft, valid: hard.length === 0, allOwned: items.length === p.items.length && items.every(i => i.owned) };
+    })
+    .filter(x => !ownedOnly || x.allOwned)
+    .sort((a, b) => (b.valid - a.valid) || (b.allOwned - a.allOwned));
+}
+
+function wearLook(look) {
+  [...SLOTS, ...ACCESSORY_SLOTS].forEach(s => builderState[s] = null);
+  look.items.map(byId).filter(Boolean).forEach(i => {
+    if (i.category === 'top') builderState.top = i.id;
+    else if (i.category === 'bottom') builderState.bottom = i.id;
+    else if (i.category === 'outerwear') builderState.outerwear = i.id;
+    else if (i.category === 'footwear') builderState.footwear = i.id;
+    else if (i.category === 'accessory') {
+      if (i.shape === 'belt') builderState.belt = i.id;
+      else if (i.shape === 'watch') builderState.watch = i.id;
+      else if (i.shape.startsWith('glasses')) builderState.glasses = i.id;
+    }
+  });
+  populateBuilderOptions(); renderFigure(); renderScores();
+}
+
+function renderCompleteLooks() {
+  const occasions = ['all', 'work', 'family', 'travel'];
+  const chips = occasions.map(o => `<button class="filter-chip occasion-chip ${pairingsFilter.occasion === o ? 'active' : ''}" data-occasion="${o}">${o}</button>`).join('');
+  const looks = classifyLooks(pairingsFilter.occasion, pairingsFilter.ownedOnly);
+
+  const cards = looks.length ? looks.map(l => {
+    const swatches = l.items.map(i => `<span class="pairing-swatch" style="background:${i.hex}" title="${i.name} — ${i.colorName}"></span>`).join('');
+    const badge = !l.valid ? `<span class="tag adv">flagged</span>` : l.soft.length ? `<span class="tag mod">caveat</span>` : `<span class="tag essential">passes rules</span>`;
+    const reasonNote = !l.valid
+      ? `<div class="score-note score-bad">No longer recommended: ${l.hard.join(' ')}</div>`
+      : l.soft.length ? `<div class="score-note score-warn">${l.soft.join(' ')}</div>` : '';
+    const missing = l.items.filter(i => !i.owned).map(i => i.name).join(', ');
+    return `
+      <div class="pairing-card">
+        <div class="pairing-head">
+          <span class="pairing-name">${l.pairing.name}</span>
+          ${badge}
+        </div>
+        <div class="pairing-occasion">${l.pairing.occasions.join(' · ')}</div>
+        <div class="pairing-swatches">${swatches}</div>
+        <div class="pairing-why">${l.pairing.why}</div>
+        ${reasonNote}
+        ${missing ? `<div class="pairing-missing">Needs from Roadmap: ${missing}</div>` : ''}
+        <button class="wear-this-btn" data-look="${l.pairing.id}" ${l.valid ? '' : 'disabled'}>${l.valid ? 'Wear this' : "Can't wear — rules changed"}</button>
+      </div>`;
+  }).join('') : `<div class="score-note">No curated looks tagged for this occasion yet.</div>`;
+
+  return `
+    <div class="score-card">
+      <h5>Complete Looks</h5>
+      <div class="filter-bar" style="margin-bottom:.7rem;">${chips}</div>
+      <label class="toggle-label" style="margin-bottom:0;"><input type="checkbox" id="looks-owned-only" ${pairingsFilter.ownedOnly ? 'checked' : ''}> Only show looks I can wear right now</label>
+    </div>
+    ${cards}
+  `;
+}
+
 function renderPairingsPanel() {
   const el = document.getElementById('pairings-panel');
   if (!el) return;
@@ -278,7 +362,22 @@ function renderPairingsPanel() {
     `;
   }
 
-  el.innerHTML = `<div class="score-card"><h5>Suggested Pairings</h5></div><div class="score-card">${body}</div>`;
+  el.innerHTML = `
+    ${renderCompleteLooks()}
+    <div class="score-card"><h5>Suggested Pairings</h5></div>
+    <div class="score-card">${body}</div>
+  `;
+  el.querySelectorAll('.occasion-chip').forEach(chip => {
+    chip.addEventListener('click', () => { pairingsFilter.occasion = chip.dataset.occasion; renderPairingsPanel(); });
+  });
+  const ownedOnlyCb = el.querySelector('#looks-owned-only');
+  if (ownedOnlyCb) ownedOnlyCb.addEventListener('change', () => { pairingsFilter.ownedOnly = ownedOnlyCb.checked; renderPairingsPanel(); });
+  el.querySelectorAll('.wear-this-btn:not([disabled])').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const look = PAIRINGS.find(p => p.id === btn.dataset.look);
+      if (look) wearLook(look);
+    });
+  });
   el.querySelectorAll('.suggest-row:not([disabled])').forEach(btn => {
     btn.addEventListener('click', () => {
       builderState[btn.dataset.slot] = btn.dataset.id;

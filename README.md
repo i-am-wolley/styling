@@ -41,7 +41,9 @@ Other editable files:
 - `data/archetypes.json` — style archetype research and your match
 - `data/framework.json` — condensed Phase 0 research
 
-`data/pairings.json` is no longer loaded — Suggested Pairings is now computed live from the rules above instead of a curated list, so every top and bottom gets a real, rule-checked answer (or an explicit "can't be paired") instead of only the combinations someone hand-picked in advance. The file is left in the repo in case you want to mine its written reasoning later, but nothing reads it.
+- `data/pairings.json` — curated "Complete Looks", each with a `name`, `occasions` (`work`/`family`/`travel`), an `items` list of ids, and a written `why`
+
+`data/pairings.json` is loaded, but never trusted blindly: the Outfit Builder re-checks every item pair inside each curated look against the same `pairCompatibility()` rules used everywhere else, on every render. A look only shows a "Wear this" button if it still passes; if item data changes later and breaks one, it's shown disabled with the exact reason instead of silently staying wrong. This is on top of, not instead of, the live Suggested Pairings panel below it — Complete Looks is for browsing full outfits by occasion, Suggested Pairings is for "what goes with this one piece I just picked." Add a new curated look by adding an entry with real item ids from `items.json`; if the ids don't form a rule-passing combination, it'll show up flagged rather than being hidden.
 
 None of this requires touching `js/app.js` or `css/style.css` — the code just reads whatever is in these files.
 
