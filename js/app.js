@@ -221,24 +221,6 @@ function renderRoadmap() {
   });
 }
 
-// ---------- Suggested Pairings (dynamic, rule-based — lives in the score panel) ----------
-// Every top and bottom is guaranteed a real, visible answer: a "good" list (clean
-// matches), a "caution" list (compatible but colour-track-mixing, flagged why), and
-// a "bad" list (hard rule violations, shown deliberately rather than silently hidden —
-// so it's obvious the engine is actually rejecting things, not passing everything).
-function classifyPartners(item, candidates) {
-  const scored = candidates
-    .filter(c => c.id !== item.id)
-    .map(c => ({ item: c, ...pairCompatibility(item, c) }));
-  const good = scored.filter(x => x.compatible && !x.soft)
-    .sort((a, b) => (b.item.owned - a.item.owned) || ((b.item.versatility||0) - (a.item.versatility||0)));
-  const caution = scored.filter(x => x.compatible && x.soft)
-    .sort((a, b) => b.item.owned - a.item.owned);
-  const bad = scored.filter(x => !x.compatible)
-    .sort((a, b) => b.item.owned - a.item.owned);
-  return { good: good.slice(0, 5), caution: caution.slice(0, 3), bad: bad.slice(0, 4) };
-}
-
 // ---------- Complete Looks (curated, occasion-tagged — validated live against the same rules) ----------
 // pairings.json holds the original hand-picked outfits with their occasion tags and written
 // "why". They're never trusted blindly: every pair inside a look is re-checked against
@@ -349,60 +331,46 @@ function renderCompleteLooks() {
   });
 }
 
+// Squares, not rows: same visual language as the main slot picker (colour swatch,
+// hover for name via title, click to wear), but colour-coded by fit against whatever
+// else is currently picked — a plain ring for a clean match, an amber ring for a
+// colour-track caveat, dimmed+× for a hard conflict — across every reactive category,
+// not just top/bottom.
+const SUGGEST_CATEGORIES = [
+  { key: 'top', label: 'Top', match: i => i.category === 'top' },
+  { key: 'bottom', label: 'Bottom', match: i => i.category === 'bottom' },
+  { key: 'outerwear', label: 'Outerwear', match: i => i.category === 'outerwear' },
+  { key: 'footwear', label: 'Footwear', match: i => i.category === 'footwear' },
+  { key: 'glasses', label: 'Glasses', match: i => i.category === 'accessory' && i.shape.startsWith('glasses') },
+];
+
 function renderSuggestedPairings() {
   const el = document.getElementById('pairings-panel');
   if (!el) return;
-  const topItem = byId(builderState.top);
-  const bottomItem = byId(builderState.bottom);
-  const allTops = ITEMS.filter(i => i.category === 'top');
-  const allBottoms = ITEMS.filter(i => i.category === 'bottom');
 
-  const rowHtml = (x, slot, flag) => `
-    <button class="suggest-row flag-${flag}" data-slot="${slot}" data-id="${x.item.id}" ${flag === 'bad' ? 'disabled' : ''}>
-      <span class="suggest-swatch" style="background:${x.item.hex}"></span>
-      <span class="suggest-label">${x.item.name} — ${x.item.colorName}</span>
-      <span class="tag ${x.item.owned ? 'essential' : 'eventual'}">${x.item.owned ? 'owned' : 'roadmap'}</span>
-      ${flag !== 'good' ? `<span class="suggest-reason">${flag === 'bad' ? x.hard.join(' ') : x.soft}</span>` : ''}
-    </button>`;
+  const groups = SUGGEST_CATEGORIES.map(cat => {
+    const against = currentlySelectedItems(cat.key);
+    const squares = ITEMS.filter(cat.match).map(item => {
+      const hard = [], soft = [];
+      against.forEach(other => {
+        const r = pairCompatibility(item, other);
+        hard.push(...r.hard);
+        if (r.soft) soft.push(r.soft);
+      });
+      const flagClass = hard.length ? 'conflict' : soft.length ? 'caution' : '';
+      const selected = builderState[cat.key] === item.id;
+      const reason = hard.length ? hard.join(' ') : soft.length ? soft.join(' ') : '';
+      const title = `${item.brand} ${item.name} — ${item.colorName}${reason ? '\n⚠ ' + reason : ''}`;
+      return `<button class="swatch-btn ${flagClass} ${selected ? 'selected' : ''}" data-slot="${cat.key}" data-id="${item.id}" style="background:${item.hex}" title="${title}"></button>`;
+    }).join('');
+    return `<div class="slot-group"><h4>${cat.label}</h4><div class="swatch-row">${squares}</div></div>`;
+  }).join('');
 
-  // Tiers now render as side-by-side columns (tier-row) instead of a stacked list,
-  // since this panel spans the full builder width once it's its own row below.
-  const tierCol = (items, slot, flag, label) => !items.length ? '' : `
-    <div class="tier-col">
-      <div class="pairing-tier-label ${flag}">${label}</div>
-      ${items.map(x => rowHtml(x, slot, flag)).join('')}
-    </div>`;
-  const tierRow = (groups, slot) => {
-    const cols = [
-      tierCol(groups.good, slot, 'good', 'Works'),
-      tierCol(groups.caution, slot, 'caution', 'Works, with a caveat'),
-      tierCol(groups.bad, slot, 'bad', "Won't work"),
-    ].join('');
-    if (!groups.good.length && !groups.caution.length) return `<div class="score-note score-bad">Can't be paired — nothing in the wardrobe or roadmap is compatible.</div>`;
-    return `<div class="tier-row">${cols}</div>`;
-  };
-
-  let body;
-  if (!topItem && !bottomItem) {
-    body = `<div class="score-note">Pick a top or bottom to see what genuinely works with it — and what's explicitly flagged as a bad match, not just silently left out.</div>`;
-  } else if (topItem && !bottomItem) {
-    body = tierRow(classifyPartners(topItem, allBottoms), 'bottom');
-  } else if (bottomItem && !topItem) {
-    body = tierRow(classifyPartners(bottomItem, allTops), 'top');
-  } else {
-    const verdict = pairCompatibility(topItem, bottomItem);
-    const thisPairing = verdict.compatible
-      ? `<div class="score-note score-good">This top + bottom passes every rule.</div>${verdict.soft ? `<div class="score-note score-warn">${verdict.soft}</div>` : ''}`
-      : `<div class="score-note score-bad">Won't work: ${verdict.hard.join(' ')}</div>`;
-    body = `
-      ${thisPairing}
-      <div class="pairing-tier-label good" style="margin-top:1rem;">Other bottoms for this top</div>
-      ${tierRow(classifyPartners(topItem, allBottoms.filter(b => b.id !== bottomItem.id)), 'bottom')}
-    `;
-  }
-
-  el.innerHTML = `<div class="score-card"><h5>Suggested Pairings</h5></div><div class="score-card">${body}</div>`;
-  el.querySelectorAll('.suggest-row:not([disabled])').forEach(btn => {
+  el.innerHTML = `
+    <div class="score-card"><h5>Suggested Pairings</h5></div>
+    <div class="score-card"><div class="suggest-squares-grid">${groups}</div></div>
+  `;
+  el.querySelectorAll('.suggest-squares-grid .swatch-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       builderState[btn.dataset.slot] = btn.dataset.id;
       populateBuilderOptions(); renderFigure(); renderScores();
