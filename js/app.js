@@ -587,7 +587,7 @@ function garmentLayer(item) {
   const g = (inner, extra='') => `<g filter="url(#dshadow)" ${extra}>${inner}</g>`;
 
   switch (shape) {
-    case 'tee': {
+    case 'tee': case 'gymkit': {
       const sleeveEnd = builderState.roll === 'high' ? 78 : 100;
       return g(`
         <path d="M62,58 L138,58 L148,${sleeveEnd} L126,94 L126,180 L74,180 L74,94 L52,${sleeveEnd} Z" fill="${fillColor}" stroke="#00000022"/>
