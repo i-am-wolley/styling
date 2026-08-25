@@ -2,9 +2,9 @@
   { "id": "p1", "name": "The Everyday Go-To", "occasions": ["work","family"], "items": ["zara-tee-purple","levis-511-seafoam","puma-court"], "why": "Both cool, clear tones — same palette track." },
   { "id": "p2", "name": "Neutral Reset", "occasions": ["work","family"], "items": ["zara-tee-white","levis-511-seafoam","puma-court"], "why": "White + seafoam reads clean, no clash risk." },
   { "id": "p3", "name": "Statement Bottom", "occasions": ["family","travel"], "items": ["zara-tee-white","levis-tapered-salmon","puma-court"], "why": "Salmon carries the outfit — keep the top neutral." },
-  { "id": "p4", "name": "Monochrome Earth", "occasions": ["family","travel"], "items": ["zara-tee-olive","zara-jogger-beige","on-cloudtilt"], "why": "Tonal earth column — comfortable, travel-easy." },
+  { "id": "p4", "name": "Monochrome Earth", "occasions": ["family","travel"], "items": ["zara-tee-olive","zara-jogger-cream","on-cloudtilt"], "why": "Tonal earth column — comfortable, travel-easy." },
   { "id": "p5", "name": "Dark Neutral Column", "occasions": ["family","travel"], "items": ["zara-tee-grey","zara-cargo","on-cloudtilt"], "why": "Grey-to-black column, utility register." },
-  { "id": "p6", "name": "Activate the Woodland", "occasions": ["family","travel"], "items": ["zara-tee-khaki","zara-jogger-beige","woodland-trekking"], "why": "Rugged-casual — finally gives the boot an outfit." },
+  { "id": "p6", "name": "Activate the Woodland", "occasions": ["family","travel"], "items": ["zara-tee-khaki","zara-jogger-cream","woodland-trekking"], "why": "Rugged-casual — finally gives the boot an outfit." },
   { "id": "p7", "name": "Purple + Black", "occasions": ["family"], "items": ["zara-tee-purple","zara-cargo","puma-court"], "why": "Jewel accent against a black neutral base." },
   { "id": "p8", "name": "The One Smart Option (today)", "occasions": ["work"], "items": ["zara-tee-white","levis-511-seafoam","redtape-derby","belt-tan"], "why": "As close to business-casual as the current wardrobe gets." },
 
