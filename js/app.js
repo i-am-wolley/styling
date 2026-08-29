@@ -17,6 +17,24 @@ const byId = id => ITEMS.find(i => i.id === id);
 const owned = () => ITEMS.filter(i => i.owned);
 const roadmap = () => ITEMS.filter(i => !i.owned);
 
+// Canonical display order for a look's pieces — top, then bottom, then outerwear,
+// footwear, and accessories (belt, watch, glasses) last — independent of whatever
+// order they happen to be listed in pairings.json.
+const CATEGORY_ORDER = { top: 0, bottom: 1, outerwear: 2, footwear: 3, accessory: 4 };
+function accessoryRank(shape) {
+  if (shape === 'belt') return 0;
+  if (shape === 'watch') return 1;
+  if (shape && shape.startsWith('glasses')) return 2;
+  return 3;
+}
+function sortLookItems(items) {
+  return [...items].sort((a, b) => {
+    const ca = CATEGORY_ORDER[a.category] ?? 5, cb = CATEGORY_ORDER[b.category] ?? 5;
+    if (ca !== cb) return ca - cb;
+    return ca === 4 ? accessoryRank(a.shape) - accessoryRank(b.shape) : 0;
+  });
+}
+
 // A patterned item (currently just the striped shirt) renders as a repeating
 // gradient instead of a flat hex wherever it shows up as a small square swatch.
 function swatchBackground(item) {
@@ -238,10 +256,15 @@ function renderRoadmap() {
 const pairingsFilter = { occasion: 'all', ownedOnly: false };
 
 function classifyLooks(occasion, ownedOnly) {
+  // Narrow to looks that contain everything currently picked in the Outfit Builder —
+  // pick a top and only looks using that top show up, making it easy to find what to
+  // build around it. Empty selection (nothing picked yet) shows everything, unfiltered.
+  const selectedIds = currentlySelectedItems().map(i => i.id);
   return (PAIRINGS || [])
     .filter(p => occasion === 'all' || p.occasions.includes(occasion))
+    .filter(p => selectedIds.every(id => p.items.includes(id)))
     .map(p => {
-      const items = p.items.map(byId).filter(Boolean);
+      const items = sortLookItems(p.items.map(byId).filter(Boolean));
       const hard = [], soft = [];
       for (let a = 0; a < items.length; a++) {
         for (let b = a + 1; b < items.length; b++) {
@@ -309,6 +332,7 @@ function renderCompleteLooks() {
   // Flagged (rule-breaking) looks are dropped entirely rather than shown disabled —
   // same "don't show what shouldn't be paired" rule Suggested Pairings follows.
   const looks = classifyLooks(pairingsFilter.occasion, pairingsFilter.ownedOnly).filter(l => l.valid);
+  const selectedCount = currentlySelectedItems().length;
 
   const rows = looks.length ? looks.map(l => {
     const swatches = l.items.map(i => `<span class="suggest-swatch" style="background:${swatchBackground(i)}" title="${i.name} — ${i.colorName}"></span>`).join('');
@@ -334,11 +358,11 @@ function renderCompleteLooks() {
         </button>
         ${detail}
       </div>`;
-  }).join('') : `<div class="score-note">No curated looks tagged for this occasion yet.</div>`;
+  }).join('') : `<div class="score-note">${selectedCount ? 'No curated look uses everything currently picked in the builder — try clearing a slot.' : 'No curated looks tagged for this occasion yet.'}</div>`;
 
   el.innerHTML = `
     <div class="score-card">
-      <h5>Complete Looks</h5>
+      <h5>Complete Looks${selectedCount ? ' — matching your picks' : ''}</h5>
       <div class="filter-bar" style="margin-bottom:.6rem;">${chips}</div>
       <label class="toggle-label" style="margin-bottom:0;"><input type="checkbox" id="looks-owned-only" ${pairingsFilter.ownedOnly ? 'checked' : ''}> Only show looks I can wear right now</label>
     </div>
