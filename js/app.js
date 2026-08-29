@@ -255,11 +255,15 @@ function renderRoadmap() {
 // combo, it gets visibly flagged here instead of silently staying wrong.
 const pairingsFilter = { occasion: 'all', ownedOnly: false };
 
+// Watch and glasses are excluded from the Complete Looks filter on purpose — they're
+// small accents you'd happily swap across many looks, not defining choices like a top
+// or bottom, so picking one shouldn't narrow the list.
+const LOOK_FILTER_SLOTS = ['top', 'bottom', 'outerwear', 'footwear', 'belt'];
 function classifyLooks(occasion, ownedOnly) {
   // Narrow to looks that contain everything currently picked in the Outfit Builder —
   // pick a top and only looks using that top show up, making it easy to find what to
   // build around it. Empty selection (nothing picked yet) shows everything, unfiltered.
-  const selectedIds = currentlySelectedItems().map(i => i.id);
+  const selectedIds = LOOK_FILTER_SLOTS.map(s => builderState[s]).filter(Boolean);
   return (PAIRINGS || [])
     .filter(p => occasion === 'all' || p.occasions.includes(occasion))
     .filter(p => selectedIds.every(id => p.items.includes(id)))
@@ -332,7 +336,7 @@ function renderCompleteLooks() {
   // Flagged (rule-breaking) looks are dropped entirely rather than shown disabled —
   // same "don't show what shouldn't be paired" rule Suggested Pairings follows.
   const looks = classifyLooks(pairingsFilter.occasion, pairingsFilter.ownedOnly).filter(l => l.valid);
-  const selectedCount = currentlySelectedItems().length;
+  const selectedCount = LOOK_FILTER_SLOTS.filter(s => builderState[s]).length;
 
   const rows = looks.length ? looks.map(l => {
     const swatches = l.items.map(i => `<span class="suggest-swatch" style="background:${swatchBackground(i)}" title="${i.name} — ${i.colorName}"></span>`).join('');
