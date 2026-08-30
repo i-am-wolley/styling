@@ -183,17 +183,13 @@ function renderSwatchTestReport() {
   const row = (i) => `
     <div class="swatch-test-row">
       <div class="swatch-test-chip" style="background:${i.hex}"></div>
-      <div class="swatch-test-info">
-        <div class="swatch-test-name">${i.name} <span class="tag ${SWATCH_RESULT_TAG[i.result]}">${SWATCH_RESULT_LABEL[i.result]}</span></div>
-        <div class="swatch-test-note">${i.note}</div>
-      </div>
+      <div class="swatch-test-name">${i.name}</div>
+      <span class="tag ${SWATCH_RESULT_TAG[i.result]}">${SWATCH_RESULT_LABEL[i.result]}</span>
     </div>`;
   return `
     <div class="swatch-test-card">
       <h4 class="swatch-test-title">Swatch Test — ${t.date}</h4>
-      <p class="swatch-test-verdict">${t.verdict}</p>
       <div class="swatch-test-list">${t.items.map(row).join('')}</div>
-      <p class="swatch-test-method">${t.method}</p>
     </div>`;
 }
 function renderPalette() {
@@ -203,7 +199,7 @@ function renderPalette() {
     <div class="palette-top-row">
       <div>
         <div class="dict-group-label">Core Neutrals</div>
-        <div class="grid">${PALETTE.coreNeutrals.map(swatch).join('')}</div>
+        <div class="palette-neutrals-grid">${PALETTE.coreNeutrals.map(swatch).join('')}</div>
       </div>
       ${renderSwatchTestReport()}
     </div>
@@ -212,10 +208,8 @@ function renderPalette() {
     <div class="grid">${PALETTE.colors.map(swatch).join('')}</div>
     <div class="dict-group-label">Validated near-face colours</div>
     <div class="grid">${PALETTE.resolution.validatedColors.map(swatch).join('')}</div>
-    ${PALETTE.resolution.validatedColors.map(c => `<p class="field" style="font-size:.85rem;">${c.name}: ${c.note}</p>`).join('')}
     <div class="dict-group-label">Safe, not flattering — don't expect a face payoff from more of these</div>
     <div class="grid">${PALETTE.resolution.underperformed.map(swatch).join('')}</div>
-    ${PALETTE.resolution.underperformed.map(c => `<p class="field" style="font-size:.85rem;">${c.name}: ${c.note}</p>`).join('')}
     <div class="section-block">
       <div class="section-title">Rules</div>
       <p class="field"><b>Ratio:</b> ${PALETTE.rules.ratio}</p>
@@ -861,7 +855,10 @@ function classifyColor(hex) {
   if (s < 0.18 || l > 0.87 || l < 0.14) return { neutral: true, muted: false, fam: 'neutral' };
   let best = null, bestDist = Infinity;
   PALETTE.colors.forEach(c => { const d = rgbDist(hex, c.hex); if (d < bestDist) { bestDist = d; best = c; } });
-  return { neutral: false, muted: s < 0.35, fam: bestDist < 95 ? 'validated' : 'other', nearest: best ? best.name : null };
+  // 0.28 is calibrated against the swatch test's own results, not arbitrary: the
+  // validated periwinkle tee measures s≈0.31 and must clear this line, while the
+  // weakest-testing sea foam chino measures s≈0.24 and must still trip it.
+  return { neutral: false, muted: s < 0.28, fam: bestDist < 95 ? 'validated' : 'other', nearest: best ? best.name : null };
 }
 
 function renderScores() {
