@@ -196,25 +196,25 @@ function renderPalette() {
   const el = document.getElementById('palette-body');
   const swatch = (c) => `<div class="card" style="min-width:130px;"><div class="card-swatch" style="background:${c.hex}"></div><div class="card-title">${c.name}</div><div class="card-meta">${c.hex}</div></div>`;
   el.innerHTML = `
-    <div class="palette-top-row">
-      <div>
+    <div class="palette-layout">
+      <div class="palette-left">
         <div class="dict-group-label">Core Neutrals</div>
-        <div class="palette-neutrals-grid">${PALETTE.coreNeutrals.map(swatch).join('')}</div>
+        <div class="palette-color-grid">${PALETTE.coreNeutrals.map(swatch).join('')}</div>
+        <div class="dict-group-label">${PALETTE.resolution.classification}</div>
+        <p class="field">${PALETTE.resolution.summary}</p>
+        <div class="palette-color-grid">${PALETTE.colors.map(swatch).join('')}</div>
+        <div class="dict-group-label">Validated near-face colours</div>
+        <div class="palette-color-grid">${PALETTE.resolution.validatedColors.map(swatch).join('')}</div>
+        <div class="dict-group-label">Safe, not flattering — don't expect a face payoff from more of these</div>
+        <div class="palette-color-grid">${PALETTE.resolution.underperformed.map(swatch).join('')}</div>
+        <div class="section-block">
+          <div class="section-title">Rules</div>
+          <p class="field"><b>Ratio:</b> ${PALETTE.rules.ratio}</p>
+          <p class="field"><b>Max colours per outfit:</b> ${PALETTE.rules.maxColors}</p>
+          <p class="field">${PALETTE.rules.faceRule}</p>
+        </div>
       </div>
-      ${renderSwatchTestReport()}
-    </div>
-    <div class="dict-group-label">${PALETTE.resolution.classification}</div>
-    <p class="field">${PALETTE.resolution.summary}</p>
-    <div class="grid">${PALETTE.colors.map(swatch).join('')}</div>
-    <div class="dict-group-label">Validated near-face colours</div>
-    <div class="grid">${PALETTE.resolution.validatedColors.map(swatch).join('')}</div>
-    <div class="dict-group-label">Safe, not flattering — don't expect a face payoff from more of these</div>
-    <div class="grid">${PALETTE.resolution.underperformed.map(swatch).join('')}</div>
-    <div class="section-block">
-      <div class="section-title">Rules</div>
-      <p class="field"><b>Ratio:</b> ${PALETTE.rules.ratio}</p>
-      <p class="field"><b>Max colours per outfit:</b> ${PALETTE.rules.maxColors}</p>
-      <p class="field">${PALETTE.rules.faceRule}</p>
+      <div class="palette-right">${renderSwatchTestReport()}</div>
     </div>
   `;
 }

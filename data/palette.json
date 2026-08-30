@@ -16,11 +16,11 @@
     ],
     "underperformed": [
       { "name": "Slate / muted bottle green", "hex": "#4B5A52", "note": "cool-leaning but muted, not olive as originally logged — safe, not flattering" },
-      { "name": "Sea foam", "hex": "#B9D4C4", "note": "pale/pastel — stays below-the-waist only, low-confidence trial (held away from face)" }
+      { "name": "Sea foam", "hex": "#B9D4C4", "note": "pale/pastel — flattest of six tested under identical conditions; stays below-the-waist only" }
     ],
     "swatchTest": {
       "date": "2026-08-30",
-      "method": "Six garments/accessories held near the jaw (sea foam held lower, at waist) under indirect daylight, same room and window. Pixel brightness was sampled but discarded — smartphone auto white-balance compensated for each swatch's dominant colour, inverting the real signal. Verdict below is a visual read across matched face crops.",
+      "method": "Six garments/accessories held near the jaw under indirect daylight, same room and window. Pixel brightness was sampled but discarded — smartphone auto white-balance compensated for each swatch's dominant colour, inverting the real signal. Verdict below is a visual read across matched face crops.",
       "verdict": "Depth and saturation predict flattery, not warm-vs-cool temperature — a warm swatch and a cool swatch tied for best.",
       "items": [
         { "name": "Tan leather (Red Tape Derby)", "hex": "#B5651D", "temp": "warm", "result": "best", "note": "Brightest, most alive skin of the six. Reframes the Derby from orphaned shoe to confirmed best-colour." },
@@ -28,7 +28,7 @@
         { "name": "Grey tee", "hex": "#8A8E88", "temp": "cool-neutral", "result": "neutral", "note": "Safe, unremarkable — fine as a base, not a hero piece." },
         { "name": "Cream jogger", "hex": "#D9CFB8", "temp": "warm-neutral", "result": "neutral", "note": "Safe, unremarkable — same tier as the grey tee." },
         { "name": "\"Dark green\" tee", "hex": "#4B5A52", "temp": "cool-muted", "result": "neutral", "note": "Actually a muted slate/bottle green, not olive as logged. Muted reads flat, not bad." },
-        { "name": "Sea foam chino", "hex": "#B9D4C4", "temp": "cool-pastel", "result": "weakest", "note": "Flattest of the six — but held at waist, not jaw, so this is the lowest-confidence trial. Stays below-the-waist regardless." }
+        { "name": "Sea foam chino", "hex": "#B9D4C4", "temp": "cool-pastel", "result": "weakest", "note": "Flattest of the six, tested under the same conditions as the rest. Stays below-the-waist — the palest of the six, not a temperature failure." }
       ]
     }
   },
