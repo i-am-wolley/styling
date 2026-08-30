@@ -92,12 +92,19 @@ function festiveConflict(a, b) {
   }
   return null;
 }
-// Colour-track mixing (Deep Winter accent + Deep Autumn accent together) is a soft
-// flag, not a hard exclude — real, but the swatch test is what actually resolves it.
-function colorTrackSoftFlag(a, b) {
-  const ca = classifyColor(a.hex), cb = classifyColor(b.hex);
-  if (!ca.neutral && !cb.neutral && ca.fam !== 'other' && cb.fam !== 'other' && ca.fam !== cb.fam) {
-    return `Mixes the Deep Winter and Deep Autumn palette tracks — worth a swatch test before committing (§Phase 3).`;
+// Resolved by the 2026-08-30 swatch test: warm/cool mixing is NOT the risk — a warm
+// (tan leather) and a cool (periwinkle) swatch both read as genuinely flattering.
+// The real risk is a muted/dusty colour worn near the face, regardless of temperature.
+function mutedNearFaceFlag(a, b) {
+  const nearFaceCats = ['top', 'outerwear'];
+  const flagged = [a, b].filter(item => {
+    if (!nearFaceCats.includes(item.category)) return false;
+    const c = classifyColor(item.hex);
+    return !c.neutral && c.muted;
+  });
+  if (flagged.length) {
+    const names = flagged.map(i => i.colorName).join(' and ');
+    return `${names} read${flagged.length === 1 ? 's' : ''} muted/dusty near the face — the swatch test (§Phase 3.4) found saturated colour flatters you more than muted, regardless of warm or cool.`;
   }
   return null;
 }
@@ -110,7 +117,7 @@ function pairCompatibility(a, b) {
     const r = fn(a, b);
     if (r) hard.push(r);
   });
-  const soft = colorTrackSoftFlag(a, b);
+  const soft = mutedNearFaceFlag(a, b);
   return { compatible: hard.length === 0, hard, soft };
 }
 function hardConflicts(candidate, againstItems) {
@@ -168,18 +175,47 @@ function renderWardrobe() {
 }
 
 // ---------- Palette ----------
+const SWATCH_RESULT_TAG = { best: 'keep', neutral: 'neutral', weakest: 'rescue' };
+const SWATCH_RESULT_LABEL = { best: 'Best', neutral: 'Neutral', weakest: 'Weakest' };
+function renderSwatchTestReport() {
+  const t = PALETTE.resolution.swatchTest;
+  if (!t) return '';
+  const row = (i) => `
+    <div class="swatch-test-row">
+      <div class="swatch-test-chip" style="background:${i.hex}"></div>
+      <div class="swatch-test-info">
+        <div class="swatch-test-name">${i.name} <span class="tag ${SWATCH_RESULT_TAG[i.result]}">${SWATCH_RESULT_LABEL[i.result]}</span></div>
+        <div class="swatch-test-note">${i.note}</div>
+      </div>
+    </div>`;
+  return `
+    <div class="swatch-test-card">
+      <h4 class="swatch-test-title">Swatch Test — ${t.date}</h4>
+      <p class="swatch-test-verdict">${t.verdict}</p>
+      <div class="swatch-test-list">${t.items.map(row).join('')}</div>
+      <p class="swatch-test-method">${t.method}</p>
+    </div>`;
+}
 function renderPalette() {
   const el = document.getElementById('palette-body');
   const swatch = (c) => `<div class="card" style="min-width:130px;"><div class="card-swatch" style="background:${c.hex}"></div><div class="card-title">${c.name}</div><div class="card-meta">${c.hex}</div></div>`;
   el.innerHTML = `
-    <p class="field" style="font-size:.95rem;">${PALETTE.confidence}</p>
-    <div class="dict-group-label">Core Neutrals — safe under either hypothesis</div>
-    <div class="grid">${PALETTE.coreNeutrals.map(swatch).join('')}</div>
-    ${PALETTE.hypotheses.map(h => `
-      <div class="dict-group-label">${h.name}</div>
-      <p class="field">${h.evidence}</p>
-      <div class="grid">${h.colors.map(swatch).join('')}</div>
-    `).join('')}
+    <div class="palette-top-row">
+      <div>
+        <div class="dict-group-label">Core Neutrals</div>
+        <div class="grid">${PALETTE.coreNeutrals.map(swatch).join('')}</div>
+      </div>
+      ${renderSwatchTestReport()}
+    </div>
+    <div class="dict-group-label">${PALETTE.resolution.classification}</div>
+    <p class="field">${PALETTE.resolution.summary}</p>
+    <div class="grid">${PALETTE.colors.map(swatch).join('')}</div>
+    <div class="dict-group-label">Validated near-face colours</div>
+    <div class="grid">${PALETTE.resolution.validatedColors.map(swatch).join('')}</div>
+    ${PALETTE.resolution.validatedColors.map(c => `<p class="field" style="font-size:.85rem;">${c.name}: ${c.note}</p>`).join('')}
+    <div class="dict-group-label">Safe, not flattering — don't expect a face payoff from more of these</div>
+    <div class="grid">${PALETTE.resolution.underperformed.map(swatch).join('')}</div>
+    ${PALETTE.resolution.underperformed.map(c => `<p class="field" style="font-size:.85rem;">${c.name}: ${c.note}</p>`).join('')}
     <div class="section-block">
       <div class="section-title">Rules</div>
       <p class="field"><b>Ratio:</b> ${PALETTE.rules.ratio}</p>
@@ -816,17 +852,16 @@ function rgbDist(hexA, hexB) {
   return Math.sqrt((a.r-b.r)**2 + (a.g-b.g)**2 + (a.b-b.b)**2);
 }
 // Real classification: desaturated/near-white/near-black = neutral; otherwise
-// find the nearest named palette colour (by RGB distance) to tag a family,
-// falling back to 'other' when nothing is a close match.
+// find the nearest named palette colour (by RGB distance) and flag whether the
+// colour itself is muted/dusty rather than saturated. The 2026-08-30 swatch test
+// (§Phase 3.4) found saturation, not warm/cool temperature, is what predicts
+// whether a colour flatters — so that's the axis this now scores on.
 function classifyColor(hex) {
   const { s, l } = hexToHsl(hex);
-  if (s < 0.18 || l > 0.87 || l < 0.14) return { neutral: true, fam: 'neutral' };
-  const winter = PALETTE.hypotheses.find(h => h.id === 'winter').colors;
-  const autumn = PALETTE.hypotheses.find(h => h.id === 'autumn').colors;
-  let best = null, bestFam = null, bestDist = Infinity;
-  winter.forEach(c => { const d = rgbDist(hex, c.hex); if (d < bestDist) { bestDist = d; best = c; bestFam = 'winter'; } });
-  autumn.forEach(c => { const d = rgbDist(hex, c.hex); if (d < bestDist) { bestDist = d; best = c; bestFam = 'autumn'; } });
-  return { neutral: false, fam: bestDist < 95 ? bestFam : 'other', nearest: best ? best.name : null };
+  if (s < 0.18 || l > 0.87 || l < 0.14) return { neutral: true, muted: false, fam: 'neutral' };
+  let best = null, bestDist = Infinity;
+  PALETTE.colors.forEach(c => { const d = rgbDist(hex, c.hex); if (d < bestDist) { bestDist = d; best = c; } });
+  return { neutral: false, muted: s < 0.35, fam: bestDist < 95 ? 'validated' : 'other', nearest: best ? best.name : null };
 }
 
 function renderScores() {
@@ -841,21 +876,23 @@ function renderScores() {
   // Colour harmony — real classification per item, not exact-hex lookup
   const classified = active.map(i => ({ item: i, ...classifyColor(i.hex) }));
   const accents = classified.filter(c => !c.neutral);
-  const winterAccents = accents.filter(c => c.fam === 'winter');
-  const autumnAccents = accents.filter(c => c.fam === 'autumn');
+  const mutedAccents = accents.filter(c => c.muted);
   let colorScore, colorNote, colorClass;
   if (accents.length === 0) {
     colorScore = 'All Neutral'; colorClass = 'score-good';
     colorNote = 'Every piece reads as neutral — very safe. Add one accent piece if you want more personality.';
   } else if (accents.length === 1) {
-    colorScore = 'Clean'; colorClass = 'score-good';
-    colorNote = `One deliberate accent (${accents[0].item.colorName}) against a neutral base — squarely in the 60/30/10 zone.`;
-  } else if (accents.length === 2 && winterAccents.length > 0 && autumnAccents.length > 0) {
-    colorScore = 'Untested'; colorClass = 'score-warn';
-    colorNote = `${winterAccents[0].item.colorName} (Deep Winter track) and ${autumnAccents[0].item.colorName} (Deep Autumn track) together — fine as a personal choice, but this specific pairing hasn't been validated by the swatch test yet.`;
+    const isMuted = accents[0].muted;
+    colorScore = isMuted ? 'Muted' : 'Clean'; colorClass = isMuted ? 'score-warn' : 'score-good';
+    colorNote = isMuted
+      ? `${accents[0].item.colorName} reads muted/dusty rather than saturated — safe, but the swatch test (§Phase 3.4) found saturated colour flatters you more.`
+      : `One deliberate accent (${accents[0].item.colorName}) against a neutral base — squarely in the 60/30/10 zone.`;
+  } else if (accents.length === 2 && mutedAccents.length > 0) {
+    colorScore = 'Muted accent'; colorClass = 'score-warn';
+    colorNote = `${mutedAccents.map(a=>a.item.colorName).join(', ')} read${mutedAccents.length===1?'s':''} muted rather than saturated. Warm/cool mixing itself is fine — validated by the 2026-08-30 swatch test — but consider a richer version of ${mutedAccents[0].item.colorName}.`;
   } else if (accents.length === 2) {
     colorScore = 'Bold, deliberate'; colorClass = 'score-good';
-    colorNote = `Two accents (${accents.map(a=>a.item.colorName).join(', ')}) — bolder than the safe default, but from the same palette track.`;
+    colorNote = `Two saturated accents (${accents.map(a=>a.item.colorName).join(', ')}) — validated combination regardless of warm/cool mix, per the 2026-08-30 swatch test.`;
   } else {
     colorScore = 'Busy'; colorClass = 'score-warn';
     colorNote = `${accents.length} non-neutral colours at once (${accents.map(a=>a.item.colorName).join(', ')}) exceeds the 3-colour ceiling from §0.3 — consider dropping one to a neutral.`;

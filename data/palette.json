@@ -1,43 +1,55 @@
 {
-  "confidence": "provisional — split between two hypotheses, pending a real daylight swatch test",
+  "confidence": "resolved — Deep, neutral-flex (daylight swatch test, 2026-08-30)",
   "coreNeutrals": [
     { "name": "Charcoal", "hex": "#383B3E" },
     { "name": "Navy", "hex": "#1C2A47" },
     { "name": "Soft Ecru", "hex": "#F1EEE6" },
     { "name": "Stone / Taupe", "hex": "#8B8175" }
   ],
-  "hypotheses": [
-    {
-      "id": "winter",
-      "name": "Deep Winter",
-      "evidence": "Self-named favourites: emerald glasses (worn daily), dusty-purple tee — both clear, cool jewel tones, chosen and loved.",
-      "colors": [
-        { "name": "Emerald", "hex": "#155C46" },
-        { "name": "Burgundy / Wine", "hex": "#6B1E33" },
-        { "name": "Jewel Purple", "hex": "#5A3E74" },
-        { "name": "Cobalt / Sapphire", "hex": "#28477E" }
-      ]
-    },
-    {
-      "id": "autumn",
-      "name": "Deep Autumn",
-      "evidence": "Best-lit photo (overcast daylight): skin holds real warmth despite the light's cooling cast; a mustard tee reads genuinely well in that photo.",
-      "colors": [
-        { "name": "Mustard Gold", "hex": "#B8892B" },
-        { "name": "Rust", "hex": "#7A3B1E" },
-        { "name": "Deep Bottle Green", "hex": "#2E4A38" },
-        { "name": "Chocolate", "hex": "#4A3524" }
+  "resolution": {
+    "classification": "Deep, neutral-flex",
+    "summary": "A daylight swatch test on 2026-08-30 tested a warm swatch (tan leather) and a cool swatch (purple/periwinkle tee) side by side against skin. Both read as genuinely flattering — the test didn't resolve warm vs. cool, it resolved that depth/saturation is the governing variable, not hue temperature. Muted or pale colours (a slate-green tee, a pastel sea foam chino) underperformed regardless of temperature. Practical rule: prioritize rich, saturated colour near the face; treat warm-vs-cool as a secondary, low-stakes choice.",
+    "validatedColors": [
+      { "name": "Emerald (Zweig glasses)", "hex": "#155C46", "note": "cool jewel tone, validated twice" },
+      { "name": "Periwinkle / Jewel Purple", "hex": "#4A4E8C", "note": "cool — tee reads periwinkle/blue-violet, corrected from 'purple'" },
+      { "name": "Cognac / Tan leather", "hex": "#B5651D", "note": "warm — Red Tape Derby; upgraded from 'orphaned shoe' to confirmed best-colour" }
+    ],
+    "underperformed": [
+      { "name": "Slate / muted bottle green", "hex": "#4B5A52", "note": "cool-leaning but muted, not olive as originally logged — safe, not flattering" },
+      { "name": "Sea foam", "hex": "#B9D4C4", "note": "pale/pastel — stays below-the-waist only, low-confidence trial (held away from face)" }
+    ],
+    "swatchTest": {
+      "date": "2026-08-30",
+      "method": "Six garments/accessories held near the jaw (sea foam held lower, at waist) under indirect daylight, same room and window. Pixel brightness was sampled but discarded — smartphone auto white-balance compensated for each swatch's dominant colour, inverting the real signal. Verdict below is a visual read across matched face crops.",
+      "verdict": "Depth and saturation predict flattery, not warm-vs-cool temperature — a warm swatch and a cool swatch tied for best.",
+      "items": [
+        { "name": "Tan leather (Red Tape Derby)", "hex": "#B5651D", "temp": "warm", "result": "best", "note": "Brightest, most alive skin of the six. Reframes the Derby from orphaned shoe to confirmed best-colour." },
+        { "name": "Periwinkle tee", "hex": "#4A4E8C", "temp": "cool", "result": "best", "note": "Tied for best. Corrected name — reads periwinkle/blue-violet, not true purple." },
+        { "name": "Grey tee", "hex": "#8A8E88", "temp": "cool-neutral", "result": "neutral", "note": "Safe, unremarkable — fine as a base, not a hero piece." },
+        { "name": "Cream jogger", "hex": "#D9CFB8", "temp": "warm-neutral", "result": "neutral", "note": "Safe, unremarkable — same tier as the grey tee." },
+        { "name": "\"Dark green\" tee", "hex": "#4B5A52", "temp": "cool-muted", "result": "neutral", "note": "Actually a muted slate/bottle green, not olive as logged. Muted reads flat, not bad." },
+        { "name": "Sea foam chino", "hex": "#B9D4C4", "temp": "cool-pastel", "result": "weakest", "note": "Flattest of the six — but held at waist, not jaw, so this is the lowest-confidence trial. Stays below-the-waist regardless." }
       ]
     }
+  },
+  "colors": [
+    { "name": "Emerald", "hex": "#155C46" },
+    { "name": "Burgundy / Wine", "hex": "#6B1E33" },
+    { "name": "Jewel Purple / Periwinkle", "hex": "#4A4E8C" },
+    { "name": "Cobalt / Sapphire", "hex": "#28477E" },
+    { "name": "Mustard Gold", "hex": "#B8892B" },
+    { "name": "Rust", "hex": "#7A3B1E" },
+    { "name": "Cognac / Tan", "hex": "#B5651D" },
+    { "name": "Chocolate", "hex": "#4A3524" }
   ],
   "rules": {
     "ratio": "60/30/10 — dominant neutral, secondary colour, accent",
     "maxColors": 3,
-    "faceRule": "Near the face (tops, shirts, knitwear): core neutrals + clear jewel tones. Below the waist (trousers, shoes): far more forgiving — existing olive/khaki/camel all work here regardless of which hypothesis is correct.",
+    "faceRule": "Near the face (tops, shirts, knitwear): core neutrals + any colour above at full saturation — warm or cool both work. Avoid muted/dusty or pastel versions near the face regardless of temperature (confirmed by swatch test). Below the waist (trousers, shoes): far more forgiving — existing olive/khaki/camel and pastel pieces (sea foam) all work here.",
     "harmonySchemes": {
       "safe": ["analogous", "monochromatic"],
       "accentOnly": ["complementary (never 50/50, one dominates)"],
-      "avoid": ["triadic and split-complementary as literal 3-hue combos — collapse to two colours plus a neutral instead"]
+      "avoid": ["triadic and split-complementary as literal 3-hue combos — collapse to two colours plus a neutral instead", "muted/dusty or pastel colour near the face"]
     }
   }
 }
