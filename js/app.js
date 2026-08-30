@@ -1,6 +1,36 @@
 // ---------- Data ----------
 let ITEMS = [], PALETTE = null, DICTIONARY = [], ARCHETYPES = null, FRAMEWORK = null, PAIRINGS = [];
 
+// items.json is static — there's no server to write back to, so "Mark owned" can't
+// edit the file directly. Two things bridge that gap: the owned/not-owned state is
+// mirrored into localStorage so it survives reloads in this browser, and the
+// "Save data/items.json" button on the Roadmap page downloads the current full
+// ITEMS array so that file can be replaced and committed for real.
+const OWNED_STATE_KEY = 'wardrobe-owned-state';
+function applyOwnedOverrides() {
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(OWNED_STATE_KEY) || '{}'); } catch (e) { saved = {}; }
+  ITEMS.forEach(i => {
+    const s = saved[i.id];
+    if (!s) return;
+    i.owned = s.owned;
+    if (s.status) i.status = s.status;
+  });
+}
+function persistOwnedState() {
+  const state = {};
+  ITEMS.forEach(i => { state[i.id] = { owned: i.owned, status: i.status }; });
+  try { localStorage.setItem(OWNED_STATE_KEY, JSON.stringify(state)); } catch (e) { /* localStorage unavailable — state just won't survive a reload */ }
+}
+function exportItemsJson() {
+  const blob = new Blob([JSON.stringify(ITEMS, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'items.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 async function loadData() {
   const [items, palette, dictionary, pairings] = await Promise.all([
     fetch('data/items.json').then(r => r.json()),
@@ -9,6 +39,7 @@ async function loadData() {
     fetch('data/pairings.json').then(r => r.json()),
   ]);
   ITEMS = items; PALETTE = palette; DICTIONARY = dictionary; PAIRINGS = pairings;
+  applyOwnedOverrides();
   try { ARCHETYPES = await fetch('data/archetypes.json').then(r => r.json()); } catch (e) { ARCHETYPES = null; }
   try { FRAMEWORK = await fetch('data/framework.json').then(r => r.json()); } catch (e) { FRAMEWORK = null; }
 }
@@ -275,6 +306,8 @@ function renderRoadmap() {
     btn.addEventListener('click', () => {
       const item = byId(btn.dataset.id);
       item.owned = !item.owned;
+      if (item.owned && !item.status) item.status = 'keep'; // roadmap items have no status until bought
+      persistOwnedState();
       renderRoadmap(); renderWardrobe(); renderGaps(); populateBuilderOptions(); renderScores();
     });
   });
@@ -992,6 +1025,7 @@ async function init() {
   renderFigure();
   renderScores();
   document.getElementById('reset-builder').addEventListener('click', resetBuilder);
+  document.getElementById('export-items-btn').addEventListener('click', exportItemsJson);
   const initial = location.hash.replace('#','') || 'wardrobe';
   showView(initial);
 }
