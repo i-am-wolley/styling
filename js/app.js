@@ -248,6 +248,8 @@ function renderRoadmap() {
     {p:90, label:'90 Days — High-value'},
     {p:180, label:'6 Months — Depth & Personality'},
     {p:365, label:'12 Months — Investment & Occasion'},
+    {p:545, label:'18 Months — Refinement'},
+    {p:730, label:'24 Months — Long-Term Wardrobe'},
   ];
   el.innerHTML = phases.map(ph => {
     const items = roadmap().filter(i => i.phase === ph.p);
@@ -307,7 +309,7 @@ function classifyLooks(occasion, ownedOnly) {
           if (r.soft) soft.push(r.soft);
         }
       }
-      return { pairing: p, items, hard, soft, valid: hard.length === 0, allOwned: items.length === p.items.length && items.every(i => i.owned) };
+      return { pairing: p, items, hard, soft: [...new Set(soft)], valid: hard.length === 0, allOwned: items.length === p.items.length && items.every(i => i.owned) };
     })
     .filter(x => !ownedOnly || x.allOwned)
     .sort((a, b) => (b.valid - a.valid) || (b.allOwned - a.allOwned));
@@ -460,7 +462,8 @@ function renderSuggestedPairings() {
         if (r.soft) soft.push(r.soft);
       });
       if (hard.length) return '';
-      const reason = soft.length ? soft.join(' ') : '';
+      const uniqueSoft = [...new Set(soft)];
+      const reason = uniqueSoft.length ? uniqueSoft.join(' ') : '';
       const title = `${item.brand} ${item.name} — ${item.colorName}${reason ? '\n⚠ ' + reason : ''}`;
       return `<button class="swatch-btn ${soft.length ? 'caution' : ''}" data-slot="${cat.key}" data-id="${item.id}" style="background:${swatchBackground(item)}" title="${title}"></button>`;
     }).join('');
