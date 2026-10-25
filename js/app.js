@@ -91,9 +91,15 @@ function silhouetteConflict(a, b) {
   return null;
 }
 // Belt/shoe leather: the one exception-free coordination rule from the Dictionary.
+// Scoped to dress leather only — the rule is about a leather belt matching leather
+// dress shoes. Sneakers are not dress leather, and two-tone sneakers kept tripping
+// it on a substring match: the Mexico 66's black suede toe and the Cloudtilt's black
+// trim both read as "black leather" to the old check, which then refused them the tan
+// belt. That's not the error this rule exists to catch.
+const DRESS_LEATHER_SHAPES = ['derby', 'loafer', 'boot', 'belt'];
 function leatherConflict(a, b) {
-  const leatherCats = ['footwear', 'accessory'];
-  if (!leatherCats.includes(a.category) || !leatherCats.includes(b.category)) return null;
+  const isDressLeather = i => ['footwear', 'accessory'].includes(i.category) && DRESS_LEATHER_SHAPES.includes(i.shape);
+  if (!isDressLeather(a) || !isDressLeather(b)) return null;
   const isBlack = i => (i.colorName || '').toLowerCase().includes('black');
   const isBrown = i => ['tan', 'brown'].some(w => (i.colorName || '').toLowerCase().includes(w));
   if ((isBlack(a) && isBrown(b)) || (isBrown(a) && isBlack(b))) {
