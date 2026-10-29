@@ -330,11 +330,21 @@ const pairingsFilter = { occasion: 'all', ownedOnly: false };
 // small accents you'd happily swap across many looks, not defining choices like a top
 // or bottom, so picking one shouldn't narrow the list.
 const LOOK_FILTER_SLOTS = ['top', 'bottom', 'outerwear', 'footwear', 'belt'];
+
+// Why the builder is holding what it's holding. 'piece' means the slots were filled
+// one at a time, so narrowing the list to looks containing them is the whole point.
+// 'look' means "Wear this" loaded a complete outfit at once — and then narrowing is
+// actively wrong: every slot is filled, so the only look containing all of them is
+// the one just clicked, and the rest of the list vanishes exactly when you'd want to
+// browse it. Set by wearLook, cleared the moment any single slot is touched.
+let builderSource = 'piece';
 function classifyLooks(occasion, ownedOnly) {
   // Narrow to looks that contain everything currently picked in the Outfit Builder —
   // pick a top and only looks using that top show up, making it easy to find what to
   // build around it. Empty selection (nothing picked yet) shows everything, unfiltered.
-  const selectedIds = LOOK_FILTER_SLOTS.map(s => builderState[s]).filter(Boolean);
+  const selectedIds = builderSource === 'look'
+    ? []
+    : LOOK_FILTER_SLOTS.map(s => builderState[s]).filter(Boolean);
   return (PAIRINGS || [])
     .filter(p => occasion === 'all' || p.occasions.includes(occasion))
     .filter(p => selectedIds.every(id => p.items.includes(id)))
@@ -355,6 +365,7 @@ function classifyLooks(occasion, ownedOnly) {
 }
 
 function wearLook(look) {
+  builderSource = 'look';
   [...SLOTS, ...ACCESSORY_SLOTS].forEach(s => builderState[s] = null);
   look.items.map(byId).filter(Boolean).forEach(i => {
     if (i.category === 'top') builderState.top = i.id;
@@ -407,7 +418,9 @@ function renderCompleteLooks() {
   // Flagged (rule-breaking) looks are dropped entirely rather than shown disabled —
   // same "don't show what shouldn't be paired" rule Suggested Pairings follows.
   const looks = classifyLooks(pairingsFilter.occasion, pairingsFilter.ownedOnly).filter(l => l.valid);
-  const selectedCount = LOOK_FILTER_SLOTS.filter(s => builderState[s]).length;
+  const selectedCount = builderSource === 'look'
+    ? 0
+    : LOOK_FILTER_SLOTS.filter(s => builderState[s]).length;
 
   const rows = looks.length ? looks.map(l => {
     const swatches = l.items.map(i => `<span class="suggest-swatch" style="background:${swatchBackground(i)}" title="${i.name} — ${i.colorName}"></span>`).join('');
@@ -516,6 +529,7 @@ function renderSuggestedPairings() {
   el.querySelectorAll('.suggest-squares-grid .swatch-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       builderState[btn.dataset.slot] = btn.dataset.id;
+      builderSource = 'piece';
       populateBuilderOptions(); renderFigure(); renderScores();
     });
   });
@@ -652,6 +666,7 @@ function populateBuilderOptions() {
     btn.addEventListener('click', () => {
       const slot = btn.closest('.swatch-row').dataset.slot;
       builderState[slot] = btn.dataset.id || null;
+      builderSource = 'piece';
       populateBuilderOptions(); renderFigure(); renderScores();
     });
   });
@@ -1011,6 +1026,7 @@ function renderScores() {
 
 // ---------- Init ----------
 function resetBuilder() {
+  builderSource = 'piece';
   [...SLOTS, ...ACCESSORY_SLOTS].forEach(s => builderState[s] = null);
   builderState.tuck = 'untucked'; builderState.roll = 'down'; builderState.breakStyle = 'half';
   expandedLookId = null;
